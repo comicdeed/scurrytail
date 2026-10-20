@@ -57,7 +57,12 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 
 ## 🌿 Git & Release Workflows
 
-- **Branching Model**: Trunk-based development. Development occurs on `feat/*` or `fix/*` branches merged into `main` via reviewed Pull Requests.
+- **Branching Model**: Trunk-based development. Development occurs directly on `main` or short-lived feature branches.
 - **Commit Messages**: Use **Conventional Commits** (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`). Never stage or commit changes without explicit user directives.
 - **Curating Release Notes**: When preparing a release, consult the [Release Notes Skill](.agents/skills/release-notes/SKILL.md) to author concise, outcome-first notes in [CHANGELOG.md](CHANGELOG.md).
-- **Release Procedure**: For step-by-step instructions on cutting release branches and automated PR-merge triggers, consult the [Release Workflow Guide](docs/release-workflow.md).
+- **Fast Tag-Push Releases (Betas, Pre-releases, Daily Builds)**:
+  1. Update `CHANGELOG.md` and version constant in `cmd/dmesg-watch/main.go` on `main`.
+  2. Commit: `git commit -am "chore(release): prepare vX.Y.Z-beta.N"`.
+  3. Tag and push: `git tag -a vX.Y.Z-beta.N -m "Release vX.Y.Z-beta.N" && git push origin main --tags`.
+  4. GitHub Actions `release.yml` triggers immediately on the tag push (`push: tags: 'v*'`), runs GoReleaser, packages artifacts, applies Convention 1 labels, and prunes older pre-releases.
+- **Stable Releases**: Dedicated `release/*` branches and reviewed PRs can optionally be used for major production milestones (`vX.Y.Z`). For full procedural details, consult the [Release Workflow Guide](docs/release-workflow.md).
