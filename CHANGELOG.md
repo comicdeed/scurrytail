@@ -5,6 +5,23 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.2] - 2026-10-20
+
+Streamlines tray menu UX with native submenus, web browser repository launching, and decluttered top-level actions.
+
+### ✨ Highlights
+* **✨ Native About Submenu & Website Launcher**: Converted the About item into a native tray submenu featuring application details and a "Website" action that opens the project repository in your default web browser via `xdg-open`.
+* **✨ Decluttered Top-Level Menu**: Relocated static version metadata into the About submenu and adopted standard desktop single-word actions (`About`, `Quit`).
+* **Quick Drill-Down to Kernel Logs**: Added a "View Kernel Logs (journalctl)" action to the system tray menu to instantly open full kernel logs in your default terminal with continuous live tailing (`journalctl -k -f -n 50`).
+* **Smart Terminal Emulator Detection**: Automatically detects Ghostty, KDE Plasma desktop terminal preferences (`kdeglobals`), `$TERMINAL`, `xdg-terminal-exec`, and common desktop terminals (`konsole`, `gnome-terminal`, `ptyxis`, `alacritty`, `xfce4-terminal`, etc.).
+* **Configurable Viewer Command**: Added a `--viewer-cmd` CLI option allowing users to customize their log viewer command or attach alternative tools.
+
+### 🛠️ Technical Notes
+* ✨ Implemented `launcher.OpenURL` with detached process isolation (`syscall.SysProcAttr{Setsid: true}`) for cross-desktop browser dispatch.
+* ✨ Replaced D-Bus notification dispatch for About dialogs, eliminating HTML markup and link formatting discrepancies on GNOME Shell.
+* Implemented `internal/launcher` with detached process isolation (`syscall.SysProcAttr{Setsid: true}`) for independent terminal lifetimes.
+* Added terminal fallback cascade validating executable existence on disk before dispatch.
+
 ## [v0.3.0-beta.1] - 2026-10-20
 
 Introduces one-click terminal log inspection to seamlessly transition from tray visibility to active debugging.

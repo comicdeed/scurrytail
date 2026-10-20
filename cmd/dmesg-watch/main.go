@@ -17,9 +17,13 @@ import (
 	"github.com/comicdeed/dmesg-watch/internal/tray"
 )
 
+const (
+	projectURL = "https://github.com/comicdeed/dmesg-watch"
+)
+
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.3.0-beta.1"
+	version = "v0.3.0-beta.2"
 )
 
 func main() {
@@ -61,10 +65,8 @@ func main() {
 			}
 		},
 		func() {
-			summary := fmt.Sprintf("dmesg-watch %s", version)
-			body := "Real-time Linux kernel error monitoring tray daemon.\n<a href=\"https://github.com/comicdeed/dmesg-watch\">https://github.com/comicdeed/dmesg-watch</a>"
-			if err := notifier.Send(summary, body); err != nil {
-				log.Printf("Failed to deliver about notification: %v", err)
+			if err := launcher.OpenURL(projectURL); err != nil {
+				log.Printf("Failed to open project website: %v", err)
 			}
 		},
 		func() {
