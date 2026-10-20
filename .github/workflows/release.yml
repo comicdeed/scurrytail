@@ -98,6 +98,58 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUR_KEY: ${{ secrets.AUR_KEY }}
 
+      - name: Apply human-readable asset labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.release_meta.outputs.tag }}
+        run: |
+          echo "Applying Convention 1 labels to release assets for $TAG..."
+          python3 - << 'EOF'
+          import os, json, subprocess
+
+          tag = os.environ["TAG"]
+          repo = os.environ["GH_REPO"]
+
+          cmd = ["gh", "api", f"repos/{repo}/releases/tags/{tag}", "--jq", ".assets[] | {id: .id, name: .name}"]
+          try:
+              output = subprocess.check_output(cmd, text=True)
+          except Exception as e:
+              print(f"Warning: Could not fetch release assets: {e}")
+              exit(0)
+
+          labels = {
+              "checksums.txt": "SHA256 Checksums",
+              "amd64.deb": "Debian / Ubuntu (x86_64)",
+              "arm64.deb": "Debian / Ubuntu (aarch64 / ARM64)",
+              "amd64.rpm": "Fedora / RHEL / openSUSE (x86_64)",
+              "arm64.rpm": "Fedora / RHEL / openSUSE (aarch64 / ARM64)",
+              "amd64.tar.gz": "Standalone Archive (x86_64)",
+              "arm64.tar.gz": "Standalone Archive (aarch64 / ARM64)",
+          }
+
+          for line in output.strip().split("\n"):
+              if not line:
+                  continue
+              asset = json.loads(line)
+              asset_id = asset["id"]
+              name = asset["name"]
+
+              matched_label = None
+              for pattern, label in labels.items():
+                  if name.endswith(pattern) or name == pattern:
+                      matched_label = label
+                      break
+
+              if matched_label:
+                  print(f"Labeling {name} -> {matched_label}")
+                  subprocess.call([
+                      "gh", "api", "-X", "PATCH",
+                      f"repos/{repo}/releases/assets/{asset_id}",
+                      "-f", f"label={matched_label}"
+                  ])
+          EOF
+
       - name: Prune older pre-releases (Sliding window of 3)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
