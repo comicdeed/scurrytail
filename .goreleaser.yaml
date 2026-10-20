@@ -29,9 +29,9 @@ archives:
 nfpms:
   - id: packages
     package_name: dmesg-watch
-    vendor: codemedic
-    homepage: https://github.com/codemedic/dmesg-watch
-    maintainer: codemedic
+    vendor: comicdeed
+    homepage: https://github.com/comicdeed/dmesg-watch
+    maintainer: comicdeed
     description: System tray kernel error monitor daemon
     license: MIT
     formats:
@@ -45,10 +45,10 @@ nfpms:
 
 aurs:
   - name: dmesg-watch-bin
-    homepage: https://github.com/codemedic/dmesg-watch
+    homepage: https://github.com/comicdeed/dmesg-watch
     description: System tray kernel error monitor daemon
     maintainers:
-      - codemedic
+      - comicdeed
     license: MIT
     private_key: '{{ .Env.AUR_KEY }}'
     git_url: 'ssh://aur@aur.archlinux.org/dmesg-watch-bin.git'

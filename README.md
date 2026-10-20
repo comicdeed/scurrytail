@@ -34,7 +34,7 @@ sudo usermod -aG adm $USER
 
 ```bash
 # Clone the repository
-git clone https://github.com/codemedic/dmesg-watch.git
+git clone https://github.com/comicdeed/dmesg-watch.git
 cd dmesg-watch
 
 # Build and install to ~/.local/bin and systemd user directory
@@ -57,7 +57,7 @@ make uninstall
 ### Option 2: Go Install
 
 ```bash
-go install github.com/codemedic/dmesg-watch/cmd/dmesg-watch@latest
+go install github.com/comicdeed/dmesg-watch/cmd/dmesg-watch@latest
 ```
 
 ---

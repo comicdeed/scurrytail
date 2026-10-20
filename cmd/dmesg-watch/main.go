@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/codemedic/dmesg-watch/internal/journal"
-	"github.com/codemedic/dmesg-watch/internal/notify"
-	"github.com/codemedic/dmesg-watch/internal/tracker"
-	"github.com/codemedic/dmesg-watch/internal/tray"
+	"github.com/comicdeed/dmesg-watch/internal/journal"
+	"github.com/comicdeed/dmesg-watch/internal/notify"
+	"github.com/comicdeed/dmesg-watch/internal/tracker"
+	"github.com/comicdeed/dmesg-watch/internal/tray"
 )
 
 var (
@@ -55,7 +55,7 @@ func main() {
 		version,
 		func() {
 			summary := fmt.Sprintf("dmesg-watch %s", version)
-			body := "Real-time Linux kernel error monitoring tray daemon.\n<a href=\"https://github.com/codemedic/dmesg-watch\">https://github.com/codemedic/dmesg-watch</a>"
+			body := "Real-time Linux kernel error monitoring tray daemon.\n<a href=\"https://github.com/comicdeed/dmesg-watch\">https://github.com/comicdeed/dmesg-watch</a>"
 			if err := notifier.Send(summary, body); err != nil {
 				log.Printf("Failed to deliver about notification: %v", err)
 			}

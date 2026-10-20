@@ -5,7 +5,7 @@ description: Use when preparing or updating dmesg-watch release notes, CHANGELOG
 
 # Release Notes Generation Skill
 
-This skill defines the standard procedure for analyzing git commits, filtering development noise, and generating concise, user-focused release notes in Markdown for **dmesg-watch** (`github.com/codemedic/dmesg-watch`).
+This skill defines the standard procedure for analyzing git commits, filtering development noise, and generating concise, user-focused release notes in Markdown for **dmesg-watch** (`github.com/comicdeed/dmesg-watch`).
 
 ---
 
