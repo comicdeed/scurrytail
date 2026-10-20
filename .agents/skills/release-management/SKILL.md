@@ -30,6 +30,53 @@ Before initiating any release in either mode, the working tree must satisfy the 
 
 ---
 
+## 🔢 Automated Version Bumping & SemVer Semantics
+
+Version selection is derived systematically from **Conventional Commits** in git history, with an explicit confirmation gate.
+
+### 1. Milestone Target Calculation
+Inspect the commit log between the last stable tag (`LAST_STABLE`) and `HEAD`:
+
+```bash
+LAST_STABLE=$(git tag --sort=-creatordate | grep -v -E '(beta|alpha|rc)' | head -n 1)
+git log "${LAST_STABLE}..HEAD" --oneline --no-merges
+```
+
+| Commit Markers in Delta | SemVer Classification | Target from `v0.2.0` | Initial Pre-Release Tag |
+| :--- | :--- | :--- | :--- |
+| Any `!` (`feat!:`, `fix!:`) or `BREAKING CHANGE:` | **MAJOR** (or SemVer §4 Minor in `0.y.z`) | `v1.0.0` | `v1.0.0-beta.1` |
+| Any `feat:` without breaking markers | **MINOR** | `v0.3.0` | `v0.3.0-beta.1` |
+| Only `fix:`, `perf:`, `refactor:`, `docs:`, `chore:` | **PATCH** | `v0.2.1` | `v0.2.1-beta.1` |
+
+### 2. Handling Mid-Beta Cycle Breaking Changes
+If a breaking change commit lands *while already in an active beta cycle*:
+
+1. **Breaks Only an Unreleased Feature (Added in Earlier Beta)**:
+   - Does **not** break previous stable release.
+   - Retain milestone target; increment beta counter (e.g., `v0.3.0-beta.1` $\rightarrow$ `v0.3.0-beta.2`).
+   - Add a `### ⚠️ Breaking Changes in Beta` section in `CHANGELOG.md` for beta testers.
+2. **Breaks Contract with Previous Stable Release**:
+   - Re-anchor milestone to next major (e.g., re-target `v0.3.0` $\rightarrow$ `v1.0.0`).
+   - Reset beta sequence under new major target (e.g., `v1.0.0-beta.1`).
+3. **Pre-1.0 SemVer Rule (0.y.z initial development, SemVer §4)**:
+   - In `0.y.z`, bumping the minor version (`0.2.0` $\rightarrow$ `0.3.0`) is the conventional signal for breaking changes without prematurely triggering `v1.0.0`.
+
+### 3. Pre-Release Tag Counter Logic
+```bash
+PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+```
+* **New Milestone**: If `PREV_TAG` belongs to a previous milestone or stable release (e.g., `v0.2.0`), start at `.1`: `v0.3.0-beta.1`.
+* **Same Milestone**: If `PREV_TAG` is an existing beta of the same target version (e.g., `v0.3.0-beta.1`), increment the beta counter: `v0.3.0-beta.2`.
+
+### 4. Smart Confirmation Gate
+Before applying the bump or creating tags, the agent must present the automated analysis and request confirmation:
+* Summary of commit delta.
+* Detected SemVer bump level (MAJOR / MINOR / PATCH).
+* Recommended tag name.
+* Option for user override (e.g. promoting a minor bump to `v1.0.0` major release).
+
+---
+
 ## ⚡ Mode 1: Pre-Release Workflow (Betas & Daily Builds)
 
 Use this mode when releasing candidate builds (`vX.Y.Z-beta.N`, `vX.Y.Z-alpha.N`, or `vX.Y.Z-rc.N`).

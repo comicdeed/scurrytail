@@ -12,6 +12,7 @@ Engineered in Go to provide minimal background memory consumption (~15MB RSS), z
 - **Real-Time Streaming**: Attaches directly to `journalctl -k -f -n 0 -p 3 --output short-precise`.
 - **Sliding-Window Metrics**: Tracks error frequency dynamically across a rolling 60-second window.
 - **Flood Protection**: Notification cooldown ensures burst errors do not spam notification banners while the tray menu continuously updates.
+- **Quick Drill-Down**: One-click tray menu action to open full kernel logs in your default terminal (`journalctl -k -f -n 50`), with automatic detection for Ghostty, KDE desktop preferences, `$TERMINAL`, `xdg-terminal-exec`, and common Linux terminals.
 - **Cross-Desktop Tray**: Implements the StatusNotifierItem (SNI) protocol supported natively by KDE Plasma, GNOME (with AppIndicator), Sway, Waybar, and other Wayland/X11 bars.
 
 ---
@@ -66,14 +67,16 @@ go install github.com/comicdeed/dmesg-watch/cmd/dmesg-watch@latest
 
 ```text
 Usage of dmesg-watch:
-  -threshold int
-        Number of kernel errors per window to trigger an alert (default 5)
-  -window duration
-        Rolling evaluation window duration (default 1m0s)
   -cooldown duration
         Notification suppression cooldown period (default 45s)
+  -threshold int
+        Number of kernel errors per window to trigger an alert (default 5)
   -version
         Print application version and exit
+  -viewer-cmd string
+        Command to view kernel logs in terminal (default "journalctl -k -f -n 50")
+  -window duration
+        Rolling evaluation window duration (default 1m0s)
 ```
 
 ---
@@ -82,6 +85,7 @@ Usage of dmesg-watch:
 
 - `cmd/dmesg-watch`: Application entrypoint, CLI flag parsing, signal orchestration.
 - `internal/journal`: Manages `journalctl` background streaming and message prefix normalization.
+- `internal/launcher`: Detached process launcher and smart terminal emulator detection cascade.
 - `internal/tracker`: Sliding-window queue of error timestamps, rate threshold calculations, and cooldown state.
 - `internal/notify`: Pure Go D-Bus client for `org.freedesktop.Notifications`.
 - `internal/tray`: StatusNotifierItem tray menu with live metric updates and embedded fallback icon.

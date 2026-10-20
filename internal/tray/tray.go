@@ -21,20 +21,23 @@ type Tray struct {
 	isWarningState bool
 	mStats         *systray.MenuItem
 	mLatest        *systray.MenuItem
+	mViewLogs      *systray.MenuItem
 	mAbout         *systray.MenuItem
 	mQuit          *systray.MenuItem
+	onViewLogs     func()
 	onAbout        func()
 	onQuit         func()
 	readyChan      chan struct{}
 }
 
-// New initializes a Tray instance with callbacks for About and user-triggered exit.
-func New(version string, onAbout func(), onQuit func()) *Tray {
+// New initializes a Tray instance with callbacks for log viewing, About, and user-triggered exit.
+func New(version string, onViewLogs func(), onAbout func(), onQuit func()) *Tray {
 	return &Tray{
-		version:   version,
-		onAbout:   onAbout,
-		onQuit:    onQuit,
-		readyChan: make(chan struct{}),
+		version:    version,
+		onViewLogs: onViewLogs,
+		onAbout:    onAbout,
+		onQuit:     onQuit,
+		readyChan:  make(chan struct{}),
 	}
 }
 
@@ -67,11 +70,26 @@ func (t *Tray) Init() {
 
 	systray.AddSeparator()
 
+	t.mViewLogs = systray.AddMenuItem("View Kernel Logs (journalctl)", "Open kernel logs in default terminal")
+	if t.onViewLogs == nil {
+		t.mViewLogs.Disable()
+	}
+
+	systray.AddSeparator()
+
 	t.mAbout = systray.AddMenuItem("About dmesg-watch", "Show version and project information")
 	t.mQuit = systray.AddMenuItem("Quit dmesg watch", "Terminate dmesg-watch background monitor")
 	t.mu.Unlock()
 
 	close(t.readyChan)
+
+	if t.onViewLogs != nil {
+		go func() {
+			for range t.mViewLogs.ClickedCh {
+				t.onViewLogs()
+			}
+		}()
+	}
 
 	go func() {
 		for range t.mAbout.ClickedCh {

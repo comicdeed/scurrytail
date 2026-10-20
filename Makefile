@@ -1,6 +1,6 @@
 APP_NAME := dmesg-watch
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "v0.1.0")
-GO ?= $(shell which go 2>/dev/null || echo /home/linuxbrew/.linuxbrew/opt/go/bin/go)
+GO ?= $(shell which go 2>/dev/null || ( [ -x $(HOME)/.local/share/brew/bin/go ] && echo $(HOME)/.local/share/brew/bin/go ) || echo /home/linuxbrew/.linuxbrew/opt/go/bin/go)
 
 PREFIX ?= $(HOME)/.local
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
