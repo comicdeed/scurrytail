@@ -5,7 +5,7 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.1.0-beta.1] - 2026-10-20
+## [v0.2.0-beta.1] - 2026-10-20
 
 The inaugural beta release of **dmesg-watch**, a lightweight Linux desktop background daemon that monitors kernel errors in real time.
 
