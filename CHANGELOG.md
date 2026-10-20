@@ -5,6 +5,24 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.6] - 2026-10-21
+
+Adds YAML configuration file support, swappable streaming backends (-backend), dynamic tray labels, and dedicated user-guide documentation.
+
+### ✨ Highlights
+* **✨ YAML Configuration File**: Added native support for `~/.config/dmesg-watch/config.yaml` with flexible array support for `viewer_cmd`, allowing background service users to customize settings without editing systemd unit files.
+* **✨ Dynamic Tray Log Label**: Fixed tray menu to dynamically reflect the active streaming backend (`View Kernel Logs (dmesg)` vs `View Kernel Logs (journalctl)`).
+* **✨ Swappable Streaming Backends**: Added `-backend` flag (`auto`, `journalctl`, `dmesg`) to stream directly via `dmesg -W` on non-systemd or embedded systems with automatic viewer command synchronization.
+* **✨ Dedicated User Guide**: Created `docs/user-guide.md` providing high-signal, plain-English guidance on icon states, configuration, permissions, and service management.
+* **Safe Non-Systemd Abort**: Added declarative package dependency on `systemd` and a `preinstall` verification hook to halt `.deb` / `.rpm` installation on non-systemd systems (e.g. Devuan, antiX, SysVinit, OpenRC) before any files are unpacked.
+* **Automatic Service Enablement**: Packages (`.deb`, `.rpm`) and installer scripts now automatically enable and start `dmesg-watch.service` under the active desktop user session immediately upon installation.
+
+### 🛠️ Technical Notes
+* ✨ Implemented `internal/config` supporting XDG config discovery and YAML unmarshaling with `gopkg.in/yaml.v3`.
+* ✨ Updated `internal/launcher` with `LaunchArgs` and direct argument list execution.
+* ✨ Fixed GoReleaser v2 nfpm packaging schema (`dependencies:`).
+* ✨ Codified "Less is More" documentation guidelines in `AGENTS.md`.
+
 ## [v0.3.0-beta.5] - 2026-10-21
 
 Adds multi-layer systemd and journalctl prerequisite validation to safely abort installation on non-systemd systems.
