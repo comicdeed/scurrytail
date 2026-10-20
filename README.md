@@ -2,7 +2,7 @@
 
 A lightweight, resource-efficient Linux desktop background daemon that monitors kernel errors in real time, displays live metrics in the system tray via StatusNotifierItem (SNI), and fires desktop notifications when high error bursts occur.
 
-Rewritten in Go from the original Python/PyQt6 architecture to provide minimal memory consumption (~15MB RSS vs ~100MB+ in Qt), zero Python dependency issues, and fast startup under systemd user sessions.
+Engineered in Go to provide minimal background memory consumption (~15MB RSS), zero complex GUI dependencies, and seamless integration under systemd user sessions.
 
 ---
 

@@ -14,16 +14,21 @@ var defaultIcon []byte
 // Tray manages the system tray icon, tooltips, and context menu items.
 type Tray struct {
 	mu        sync.Mutex
+	version   string
 	mStats    *systray.MenuItem
 	mLatest   *systray.MenuItem
+	mAbout    *systray.MenuItem
 	mQuit     *systray.MenuItem
+	onAbout   func()
 	onQuit    func()
 	readyChan chan struct{}
 }
 
-// New initializes a Tray instance with a callback for user-triggered exit.
-func New(onQuit func()) *Tray {
+// New initializes a Tray instance with callbacks for About and user-triggered exit.
+func New(version string, onAbout func(), onQuit func()) *Tray {
 	return &Tray{
+		version:   version,
+		onAbout:   onAbout,
 		onQuit:    onQuit,
 		readyChan: make(chan struct{}),
 	}
@@ -39,9 +44,15 @@ func (t *Tray) Ready() <-chan struct{} {
 func (t *Tray) Init() {
 	systray.SetIcon(defaultIcon)
 	systray.SetTitle("dmesg-watch")
-	systray.SetTooltip("dmesg watch - Monitoring Kernel")
+	systray.SetTooltip(fmt.Sprintf("dmesg-watch %s - Monitoring Kernel", t.version))
 
 	t.mu.Lock()
+	// Unclickable title header showing application and version
+	mTitle := systray.AddMenuItem(fmt.Sprintf("dmesg-watch %s", t.version), "Application version")
+	mTitle.Disable()
+
+	systray.AddSeparator()
+
 	t.mStats = systray.AddMenuItem("Errors (Last 60s): 0", "Count of kernel errors in the rolling window")
 	t.mStats.Disable()
 
@@ -50,10 +61,19 @@ func (t *Tray) Init() {
 
 	systray.AddSeparator()
 
+	t.mAbout = systray.AddMenuItem("About dmesg-watch", "Show version and project information")
 	t.mQuit = systray.AddMenuItem("Quit dmesg watch", "Terminate dmesg-watch background monitor")
 	t.mu.Unlock()
 
 	close(t.readyChan)
+
+	go func() {
+		for range t.mAbout.ClickedCh {
+			if t.onAbout != nil {
+				t.onAbout()
+			}
+		}
+	}()
 
 	go func() {
 		for range t.mQuit.ClickedCh {

@@ -51,9 +51,19 @@ func main() {
 	notifier := notify.New("dmesg-watch")
 
 	var uiTray *tray.Tray
-	uiTray = tray.New(func() {
-		cancel()
-	})
+	uiTray = tray.New(
+		version,
+		func() {
+			summary := fmt.Sprintf("dmesg-watch %s", version)
+			body := "Real-time Linux kernel error monitoring tray daemon.\n<a href=\"https://github.com/codemedic/dmesg-watch\">https://github.com/codemedic/dmesg-watch</a>"
+			if err := notifier.Send(summary, body); err != nil {
+				log.Printf("Failed to deliver about notification: %v", err)
+			}
+		},
+		func() {
+			cancel()
+		},
+	)
 
 	// Background worker coordinates log stream and metrics
 	go func() {
