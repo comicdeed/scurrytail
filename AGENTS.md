@@ -22,7 +22,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 - **`cmd/`**: Entrypoint binaries.
   - `cmd/dmesg-watch/main.go` parses CLI flags, manages the root context lifecycle (`SIGINT`/`SIGTERM`), and wires domain packages together. Keep `main` focused on orchestration.
 - **`internal/journal`**: Subprocess streaming.
-  - Handles `journalctl -k -f -p 3` execution, stdout pipe scanning, and syslog/kernel header normalization.
+  - Handles `journalctl -k -f -n 0 -p 3` execution, stdout pipe scanning, and syslog/kernel header normalization.
 - **`internal/tracker`**: Rate monitoring and state machine.
   - Maintains the concurrency-safe sliding-window queue of error timestamps. Evaluates rate thresholds, sliding-window expirations, and notification cooldowns.
 - **`internal/notify`**: Desktop notification dispatcher.

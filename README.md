@@ -9,7 +9,7 @@ Engineered in Go to provide minimal background memory consumption (~15MB RSS), z
 ## Features
 
 - **Resource Efficient**: Pure Go implementation using direct D-Bus communication without heavy GUI platform runtimes.
-- **Real-Time Streaming**: Attaches directly to `journalctl -k -f -p 3 --output short-precise`.
+- **Real-Time Streaming**: Attaches directly to `journalctl -k -f -n 0 -p 3 --output short-precise`.
 - **Sliding-Window Metrics**: Tracks error frequency dynamically across a rolling 60-second window.
 - **Flood Protection**: Notification cooldown ensures burst errors do not spam notification banners while the tray menu continuously updates.
 - **Cross-Desktop Tray**: Implements the StatusNotifierItem (SNI) protocol supported natively by KDE Plasma, GNOME (with AppIndicator), Sway, Waybar, and other Wayland/X11 bars.

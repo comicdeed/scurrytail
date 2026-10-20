@@ -28,13 +28,13 @@ func CleanKernelMessage(raw string) string {
 	return line
 }
 
-// Stream launches journalctl -k -f -p 3 --output short-precise in the background,
+// Stream launches journalctl -k -f -n 0 -p 3 --output short-precise in the background,
 // emitting cleaned log lines to the returned channel until ctx is cancelled.
 func Stream(ctx context.Context) (<-chan string, <-chan error) {
 	msgCh := make(chan string, 32)
 	errCh := make(chan error, 1)
 
-	cmd := exec.CommandContext(ctx, "journalctl", "-k", "-f", "-p", "3", "--output", "short-precise")
+	cmd := exec.CommandContext(ctx, "journalctl", "-k", "-f", "-n", "0", "-p", "3", "--output", "short-precise")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		errCh <- err
