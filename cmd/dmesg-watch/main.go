@@ -23,7 +23,7 @@ const (
 
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.3.0-beta.2"
+	version = "v0.3.0-beta.3"
 )
 
 func main() {
