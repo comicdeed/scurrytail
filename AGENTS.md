@@ -59,7 +59,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 
 - **Branching Model**: Trunk-based development. Development occurs directly on `main` or short-lived feature branches.
 - **Commit Messages**: Use **Conventional Commits** (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`). Never stage or commit changes without explicit user directives.
-- **Curating Release Notes**: When preparing a release, consult the [Release Notes Skill](.agents/skills/release-notes/SKILL.md) to author concise, outcome-first notes in [CHANGELOG.md](CHANGELOG.md).
+- **Release Management**: When preparing any release (Pre-Release or Formal Release), consult the [Release Management Skill](.agents/skills/release-management/SKILL.md) which orchestrates version bumps, changelog notes, validation gates, git mechanics, and post-publish verification.
 - **Fast Tag-Push Releases (Betas, Pre-releases, Daily Builds)**:
   1. Update `CHANGELOG.md` and version constant in `cmd/dmesg-watch/main.go` on `main`.
   2. Commit: `git commit -am "chore(release): prepare vX.Y.Z-beta.N"`.
