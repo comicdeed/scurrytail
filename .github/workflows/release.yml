@@ -78,7 +78,7 @@ jobs:
           match = re.search(r'## \[v[^\]]+\][^\n]*\n(.*?)(?=\n## \[v|\Z)', content, re.DOTALL)
           notes = match.group(1).strip() if match else ''
 
-          with open('release_notes.md', 'w') as f:
+          with open('/tmp/release_notes.md', 'w') as f:
               f.write(notes + '\n')
           "
 
@@ -93,7 +93,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean --release-notes=release_notes.md
+          args: release --clean --release-notes=/tmp/release_notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUR_KEY: ${{ secrets.AUR_KEY }}

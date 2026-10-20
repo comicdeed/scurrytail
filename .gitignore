@@ -11,6 +11,7 @@ dist/
 # Test artifacts
 *.test
 *.out
+release_notes.md
 
 # Go workspace
 go.work
