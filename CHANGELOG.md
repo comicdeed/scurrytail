@@ -5,6 +5,25 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0-beta.5] - 2026-10-20
+
+This beta refines the desktop integration, presenting a clean, human-readable tooltip and title in the system tray.
+
+### ✨ Highlights
+* **Human-Readable Tray Tooltip**: Hovering over the tray icon now displays the clear application name (`dmesg watch`) as the header, followed by a functional description (`Monitors kernel error logs in real time`).
+* **Dynamic Calm/Alert Icon States**: The tray icon displays a subtle, monochrome monitor outline when healthy (0 errors in the last 60s), transitioning to the amber warning icon only when errors are present.
+* **Seamless Package Startup**: Installing via `.deb` or `.rpm` works immediately out of the box without systemd execution errors.
+* **Universal Distribution Compatibility**: Binaries across `.deb`, `.rpm`, and tarball packages are compiled completely statically, eliminating `glibc` version dependencies.
+* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
+* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
+* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
+* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
+* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
+
+### 🛠️ Technical Notes
+* Updated SNI `Title` and `ToolTip` properties in `internal/tray` to separate the user-facing application title from package identifiers and version metadata.
+* Structured tooltip content with line separation to map cleanly to desktop shell title and body subtext.
+
 ## [v0.2.0-beta.4] - 2026-10-20
 
 This beta introduces dynamic tray icon state transitions, keeping the desktop interface quiet and unobtrusive when no errors are detected.

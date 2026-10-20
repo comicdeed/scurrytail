@@ -47,8 +47,8 @@ func (t *Tray) Ready() <-chan struct{} {
 // This must be called inside the systray.Run onReady callback.
 func (t *Tray) Init() {
 	systray.SetIcon(iconNormal)
-	systray.SetTitle("dmesg-watch")
-	systray.SetTooltip(fmt.Sprintf("dmesg-watch %s - Monitoring Kernel", t.version))
+	systray.SetTitle("dmesg watch")
+	systray.SetTooltip("dmesg watch\nMonitors kernel error logs in real time")
 
 	t.mu.Lock()
 	t.isWarningState = false
