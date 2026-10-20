@@ -118,7 +118,7 @@ Consolidate the living draft into the final milestone release notes:
 1. Strip all temporary `✨` markers from the entire feature and technical list.
 2. Ensure the milestone summary reflects the complete, verified release.
 3. Place `## [vX.Y.Z] - YYYY-MM-DD` at the top of `CHANGELOG.md`.
-4. Keep the historical beta sections below for lineage.
+4. Squash and replace the intermediate beta blocks into the single consolidated milestone entry, keeping prior stable milestone releases below for clean, noise-free packaging notes.
 
 ```markdown
 ## [vX.Y.Z] - YYYY-MM-DD

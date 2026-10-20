@@ -5,115 +5,28 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.2.0-beta.6] - 2026-10-20
+## [v0.2.0] - 2026-10-20
 
-This beta resolves immediate false-positive startup alerts caused by journalctl history backfill.
+The first feature milestone of dmesg-watch, delivering a lightweight, resource-conscious Linux background daemon for real-time kernel error monitoring with native desktop tray integration.
 
-### ✨ Highlights
+### Highlights
+* **Real-time Kernel Error Monitoring**: Streams kernel alerts in real time (`journalctl -k -f -n 0 -p 3`) without terminal polling or manual log inspection.
+* **Quiet by Default**: Background tray dashboard tracks error rates across a rolling 60-second window, alerting only when error thresholds are crossed.
 * **Clean Startup State**: Launches directly in a calm, zero-error state without replaying historical journal entries or triggering false-positive alerts upon startup.
-* **Human-Readable Tray Tooltip**: Hovering over the tray icon displays the clear application name (`dmesg watch`) as the header, followed by a functional description (`Monitors kernel error logs in real time`).
-* **Dynamic Calm/Alert Icon States**: The tray icon displays a subtle, monochrome monitor outline when healthy (0 errors in the last 60s), transitioning to the amber warning icon only when errors are present.
-* **Seamless Package Startup**: Installing via `.deb` or `.rpm` works immediately out of the box without systemd execution errors.
-* **Universal Distribution Compatibility**: Binaries across `.deb`, `.rpm`, and tarball packages are compiled completely statically, eliminating `glibc` version dependencies.
-* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
-* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
-* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
-* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
-* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
+* **Dynamic Calm/Alert Icon States**: Displays a subtle monochrome monitor outline when healthy (0 errors in 60s), transitioning to an amber warning icon during active faults.
+* **Smart Notification Cooldown**: Desktop notification dispatch throttles bursts to prevent notification flooding while keeping the tray menu continuously updated.
+* **Human-Readable Desktop Integration**: Native StatusNotifierItem (SNI) integration with clean, two-line hover tooltips (`dmesg watch`) and dynamic context menu error diagnostics.
+* **Universal Static Binaries**: Pure Go implementation compiled statically (`CGO_ENABLED=0`) across `.deb`, `.rpm`, and standalone archives, with zero runtime library or GUI dependencies.
+* **Seamless Systemd Service**: Complete systemd user service integration with automatic restart and desktop graphical session target binding.
 
 ### 🛠️ Technical Notes
+* Implemented concurrency-safe sliding-window time queue in `internal/tracker` with sub-millisecond evaluation.
+* Direct D-Bus desktop notifications via `org.freedesktop.Notifications` with clickable link support.
+* Direct StatusNotifierItem export over session D-Bus with minimal memory footprint (~15-20MB RSS).
+* Fixed systemd user unit `ExecStart` target in `.deb` and `.rpm` packages to point to `/usr/bin/dmesg-watch` while maintaining local path substitution for `make install`.
 * Added `-n 0` to background `journalctl` process invocation, overriding systemd's default 10-line history buffer and jumping straight to the journal tail.
+* Multi-architecture Linux packages (`amd64` and `arm64`) generated automatically via GoReleaser.
 
-## [v0.2.0-beta.5] - 2026-10-20
+## [v0.1.0] - 2026-10-20
 
-This beta refines the desktop integration, presenting a clean, human-readable tooltip and title in the system tray.
-
-### ✨ Highlights
-* **Human-Readable Tray Tooltip**: Hovering over the tray icon now displays the clear application name (`dmesg watch`) as the header, followed by a functional description (`Monitors kernel error logs in real time`).
-* **Dynamic Calm/Alert Icon States**: The tray icon displays a subtle, monochrome monitor outline when healthy (0 errors in the last 60s), transitioning to the amber warning icon only when errors are present.
-* **Seamless Package Startup**: Installing via `.deb` or `.rpm` works immediately out of the box without systemd execution errors.
-* **Universal Distribution Compatibility**: Binaries across `.deb`, `.rpm`, and tarball packages are compiled completely statically, eliminating `glibc` version dependencies.
-* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
-* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
-* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
-* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
-* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
-
-### 🛠️ Technical Notes
-* Updated SNI `Title` and `ToolTip` properties in `internal/tray` to separate the user-facing application title from package identifiers and version metadata.
-* Structured tooltip content with line separation to map cleanly to desktop shell title and body subtext.
-
-## [v0.2.0-beta.4] - 2026-10-20
-
-This beta introduces dynamic tray icon state transitions, keeping the desktop interface quiet and unobtrusive when no errors are detected.
-
-### ✨ Highlights
-* **Dynamic Calm/Alert Icon States**: The tray icon now displays a subtle, monochrome monitor outline when healthy (0 errors in the last 60s), transitioning to the amber warning icon only when errors are present.
-* **Seamless Package Startup**: Installing via `.deb` or `.rpm` works immediately out of the box without systemd execution errors.
-* **Universal Distribution Compatibility**: Binaries across `.deb`, `.rpm`, and tarball packages are compiled completely statically, eliminating `glibc` version dependencies.
-* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
-* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
-* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
-* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
-* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
-
-### 🛠️ Technical Notes
-* ✨ Added embedded `assets/icon_normal.png` (neutral panel monitor) alongside `assets/icon_warning.png` (amber alert shield).
-* ✨ Implemented state-change detection in `internal/tray` to update D-Bus icon properties only upon state transitions, eliminating redundant D-Bus traffic during idle ticks.
-* Fixed systemd user unit `ExecStart` target in `.deb` and `.rpm` packages to point to `/usr/bin/dmesg-watch` instead of user-local paths.
-* Added dynamic path rewriting in `Makefile` and `scripts/install.sh` to configure `ExecStart` accurately for local user-prefix installs.
-* Configured `CGO_ENABLED=0` across GoReleaser and Makefile to produce pure static ELF binaries without dynamic `libc` dependencies.
-
-## [v0.2.0-beta.3] - 2026-10-20
-
-This maintenance beta resolves service execution failures when running from Debian and RPM packages.
-
-### ✨ Highlights
-* **Seamless Package Startup**: Installing via `.deb` or `.rpm` now works immediately out of the box without systemd execution errors.
-* **Universal Distribution Compatibility**: Binaries across `.deb`, `.rpm`, and tarball packages are compiled completely statically, eliminating `glibc` version dependencies.
-* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
-* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
-* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
-* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
-* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
-
-### 🛠️ Technical Notes
-* ✨ Fixed systemd user unit `ExecStart` target in `.deb` and `.rpm` packages to point to `/usr/bin/dmesg-watch` instead of user-local paths, resolving `status=203/EXEC` failures upon package install.
-* ✨ Added dynamic path rewriting in `Makefile` and `scripts/install.sh` to configure `ExecStart` accurately for local user-prefix installs.
-* Configured `CGO_ENABLED=0` across GoReleaser and Makefile to produce pure static ELF binaries without dynamic `libc` dependencies.
-* Implemented in pure Go, maintaining a minimal idle memory footprint (~15MB RSS).
-* Direct D-Bus Session Bus integration for StatusNotifierItem (SNI) and desktop notifications without external GUI dependencies.
-
-## [v0.2.0-beta.2] - 2026-10-20
-
-This second beta build focuses on broad host distribution compatibility and cross-distro packaging reliability.
-
-### ✨ Highlights
-* **Universal Distribution Compatibility**: Binaries across `.deb`, `.rpm`, and tarball packages are now compiled completely statically, eliminating `glibc` version dependencies.
-* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
-* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
-* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
-* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
-* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
-
-### 🛠️ Technical Notes
-* ✨ Configured `CGO_ENABLED=0` across GoReleaser and Makefile to produce pure static ELF binaries without dynamic `libc` dependencies, ensuring seamless installation across older distributions (Ubuntu 20.04/22.04, Debian 11/12, RHEL 8/9) and musl-based systems (Alpine Linux).
-* Implemented in pure Go, maintaining a minimal idle memory footprint (~15MB RSS).
-* Direct D-Bus Session Bus integration for StatusNotifierItem (SNI) and desktop notifications without external GUI dependencies.
-* Packaged with systemd user unit (`graphical-session.target`), standalone tarballs, and automated `.deb` / `.rpm` distro packages.
-
-## [v0.2.0-beta.1] - 2026-10-20
-
-The inaugural beta release of **dmesg-watch**, a lightweight Linux desktop background daemon that monitors kernel errors in real time.
-
-### ✨ Highlights
-* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
-* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
-* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
-* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
-* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
-
-### 🛠️ Technical Notes
-* Implemented in pure Go, maintaining a minimal idle memory footprint (~15MB RSS).
-* Direct D-Bus Session Bus integration for StatusNotifierItem (SNI) and desktop notifications without external GUI dependencies.
-* Packaged with systemd user unit (`graphical-session.target`), standalone tarballs, and automated `.deb` / `.rpm` distro packages.
+* Initial repository scaffold and build system setup.
