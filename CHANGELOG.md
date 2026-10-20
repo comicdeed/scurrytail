@@ -5,6 +5,24 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.4] - 2026-10-20
+
+Adds dynamic active-session discovery to ensure automatic service activation works under GUI package managers (Discover, GNOME Software, PackageKit).
+
+### ✨ Highlights
+* **✨ GUI Software Center Support**: Enhanced package lifecycle hooks to discover active desktop sessions via `/run/user/*` instead of relying on `$SUDO_USER`, enabling automatic service activation when installing through KDE Discover, GNOME Software, or PackageKit.
+* **Automatic Service Enablement**: Packages (`.deb`, `.rpm`) and installer scripts now automatically enable and start `dmesg-watch.service` under the active desktop user session immediately upon installation.
+* **Declarative Systemd Preset**: Installed a system-wide user preset (`50-dmesg-watch.preset`) ensuring the service starts automatically on future desktop logins.
+* **Native About Submenu & Website Launcher**: Converted the About item into a native tray submenu featuring application details and a "Website" action that opens the project repository in your default web browser via `xdg-open`.
+* **Decluttered Top-Level Menu**: Relocated static version metadata into the About submenu and adopted standard desktop single-word actions (`About`, `Quit`).
+* **Quick Drill-Down to Kernel Logs**: Added a "View Kernel Logs (journalctl)" action to the system tray menu to instantly open full kernel logs in your default terminal with continuous live tailing (`journalctl -k -f -n 50`).
+* **Smart Terminal Emulator Detection**: Automatically detects Ghostty, KDE Plasma desktop terminal preferences (`kdeglobals`), `$TERMINAL`, `xdg-terminal-exec`, and common desktop terminals.
+* **Configurable Viewer Command**: Added a `--viewer-cmd` CLI option allowing users to customize their log viewer command.
+
+### 🛠️ Technical Notes
+* ✨ Refactored `scripts/postinstall.sh` and `scripts/prerm.sh` to iterate through `/run/user/*` to target active systemd user managers without dependency on terminal sudo environment variables.
+* Bundled `/usr/lib/systemd/user-preset/50-dmesg-watch.preset` across `.deb`, `.rpm`, AUR, and standalone tarballs.
+
 ## [v0.3.0-beta.3] - 2026-10-20
 
 Automates systemd user service enablement and startup upon package installation across all distribution formats.
