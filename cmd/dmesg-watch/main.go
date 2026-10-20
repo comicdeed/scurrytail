@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -23,7 +24,7 @@ const (
 
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.3.0-beta.4"
+	version = "v0.3.0-beta.5"
 )
 
 func main() {
@@ -39,6 +40,10 @@ func main() {
 	if *showVersion {
 		fmt.Printf("dmesg-watch %s\n", version)
 		os.Exit(0)
+	}
+
+	if _, err := exec.LookPath("journalctl"); err != nil {
+		log.Fatalf("Fatal: 'journalctl' was not found on PATH. dmesg-watch requires systemd-journald.")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -40,6 +40,8 @@ nfpms:
     formats:
       - deb
       - rpm
+    depends:
+      - systemd
     contents:
       - src: systemd/dmesg-watch.service
         dst: /usr/lib/systemd/user/dmesg-watch.service
@@ -50,6 +52,7 @@ nfpms:
         file_info:
           mode: 0644
     scripts:
+      preinstall: scripts/preinstall.sh
       postinstall: scripts/postinstall.sh
       preremove: scripts/prerm.sh
 

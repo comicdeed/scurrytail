@@ -22,6 +22,19 @@ else
 fi
 
 if [ "$ACTION" = "install" ]; then
+    echo "==> Verifying system prerequisites..."
+    if ! command -v journalctl >/dev/null 2>&1; then
+        echo "Error: 'journalctl' was not found on this system." >&2
+        echo "dmesg-watch requires systemd-journald to stream kernel errors." >&2
+        exit 1
+    fi
+
+    if [ ! -d /run/systemd/system ]; then
+        echo "Error: systemd is not running as the active init system." >&2
+        echo "dmesg-watch requires a running systemd user session." >&2
+        exit 1
+    fi
+
     echo "==> Installing dmesg-watch..."
     mkdir -p "$BIN_DIR"
     mkdir -p "$SYSTEMD_DIR"
