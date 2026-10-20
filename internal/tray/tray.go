@@ -18,6 +18,7 @@ var iconWarning []byte
 type Tray struct {
 	mu             sync.Mutex
 	version        string
+	backend        string
 	isWarningState bool
 	mStats         *systray.MenuItem
 	mLatest        *systray.MenuItem
@@ -32,9 +33,10 @@ type Tray struct {
 }
 
 // New initializes a Tray instance with callbacks for log viewing, Website URL opening, and user-triggered exit.
-func New(version string, onViewLogs func(), onWebsite func(), onQuit func()) *Tray {
+func New(version string, backend string, onViewLogs func(), onWebsite func(), onQuit func()) *Tray {
 	return &Tray{
 		version:    version,
+		backend:    backend,
 		onViewLogs: onViewLogs,
 		onWebsite:  onWebsite,
 		onQuit:     onQuit,
@@ -65,7 +67,11 @@ func (t *Tray) Init() {
 
 	systray.AddSeparator()
 
-	t.mViewLogs = systray.AddMenuItem("View Kernel Logs (journalctl)", "Open kernel logs in default terminal")
+	viewLabel := "View Kernel Logs"
+	if t.backend != "" {
+		viewLabel = fmt.Sprintf("View Kernel Logs (%s)", t.backend)
+	}
+	t.mViewLogs = systray.AddMenuItem(viewLabel, fmt.Sprintf("Open kernel logs in default terminal via %s", t.backend))
 	if t.onViewLogs == nil {
 		t.mViewLogs.Disable()
 	}

@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/comicdeed/dmesg-watch/internal/config"
 	"github.com/comicdeed/dmesg-watch/internal/journal"
 	"github.com/comicdeed/dmesg-watch/internal/launcher"
 	"github.com/comicdeed/dmesg-watch/internal/notify"
@@ -24,15 +25,19 @@ const (
 
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.3.0-beta.5"
+	version = "v0.3.0-beta.6"
 )
 
 func main() {
+	defaultCfg := config.Default()
+
 	var (
-		threshold   = flag.Int("threshold", 5, "Number of kernel errors per window to trigger an alert")
-		window      = flag.Duration("window", 60*time.Second, "Rolling evaluation window duration")
-		cooldown    = flag.Duration("cooldown", 45*time.Second, "Notification suppression cooldown period")
-		viewerCmd   = flag.String("viewer-cmd", "journalctl -k -f -n 50", "Command to view kernel logs in terminal")
+		configFile  = flag.String("config", "", "Path to YAML configuration file")
+		threshold   = flag.Int("threshold", defaultCfg.Threshold, "Number of kernel errors per window to trigger an alert")
+		window      = flag.Duration("window", defaultCfg.Window, "Rolling evaluation window duration")
+		cooldown    = flag.Duration("cooldown", defaultCfg.Cooldown, "Notification suppression cooldown period")
+		backend     = flag.String("backend", defaultCfg.Backend, "Kernel log streaming backend: auto, journalctl, or dmesg")
+		viewerCmd   = flag.String("viewer-cmd", "", "Command to view kernel logs in terminal (defaults to backend follow command)")
 		showVersion = flag.Bool("version", false, "Print application version and exit")
 	)
 	flag.Parse()
@@ -42,8 +47,53 @@ func main() {
 		os.Exit(0)
 	}
 
-	if _, err := exec.LookPath("journalctl"); err != nil {
-		log.Fatalf("Fatal: 'journalctl' was not found on PATH. dmesg-watch requires systemd-journald.")
+	// Load optional configuration file (defaults -> config file -> CLI flags)
+	fileCfg, loadedPath, err := config.Load(*configFile)
+	if err != nil {
+		log.Fatalf("Fatal: %v", err)
+	}
+	if loadedPath != "" {
+		log.Printf("Loaded configuration from %s", loadedPath)
+	}
+
+	explicitFlags := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) {
+		explicitFlags[f.Name] = true
+	})
+
+	activeThreshold := *threshold
+	if !explicitFlags["threshold"] && fileCfg.Threshold > 0 {
+		activeThreshold = fileCfg.Threshold
+	}
+
+	activeWindow := *window
+	if !explicitFlags["window"] && fileCfg.Window > 0 {
+		activeWindow = fileCfg.Window
+	}
+
+	activeCooldown := *cooldown
+	if !explicitFlags["cooldown"] && fileCfg.Cooldown > 0 {
+		activeCooldown = fileCfg.Cooldown
+	}
+
+	activeBackend := *backend
+	if !explicitFlags["backend"] && fileCfg.Backend != "" {
+		activeBackend = fileCfg.Backend
+	}
+
+	selectedBackend, defaultViewer, err := journal.ResolveBackend(activeBackend)
+	if err != nil {
+		log.Fatalf("Fatal: %v", err)
+	}
+
+	// Resolve viewer command arguments: CLI flag > config file > backend default
+	var activeViewerArgs []string
+	if explicitFlags["viewer-cmd"] && strings.TrimSpace(*viewerCmd) != "" {
+		activeViewerArgs = strings.Fields(strings.TrimSpace(*viewerCmd))
+	} else if len(fileCfg.ViewerCmd) > 0 {
+		activeViewerArgs = fileCfg.ViewerCmd
+	} else {
+		activeViewerArgs = strings.Fields(defaultViewer)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,9 +104,9 @@ func main() {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
 	track := tracker.New(tracker.Config{
-		Window:    *window,
-		Threshold: *threshold,
-		Cooldown:  *cooldown,
+		Window:    activeWindow,
+		Threshold: activeThreshold,
+		Cooldown:  activeCooldown,
 	})
 
 	notifier := notify.New("dmesg-watch")
@@ -64,8 +114,9 @@ func main() {
 	var uiTray *tray.Tray
 	uiTray = tray.New(
 		version,
+		selectedBackend,
 		func() {
-			if err := launcher.Launch(*viewerCmd); err != nil {
+			if err := launcher.LaunchArgs(activeViewerArgs); err != nil {
 				log.Printf("Failed to open kernel log viewer: %v", err)
 			}
 		},
@@ -83,7 +134,7 @@ func main() {
 	go func() {
 		<-uiTray.Ready()
 
-		msgCh, errCh := journal.Stream(ctx)
+		msgCh, errCh := journal.Stream(ctx, selectedBackend)
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 
@@ -116,7 +167,7 @@ func main() {
 				if shouldAlert {
 					summary := "⚠️ High Kernel Error Rate"
 					body := fmt.Sprintf("Detected %d kernel errors in the last %s!\nLatest: %s",
-						count, window.String(), latest)
+						count, activeWindow.String(), latest)
 					if err := notifier.Send(summary, body); err != nil {
 						log.Printf("Failed to deliver notification: %v", err)
 					}

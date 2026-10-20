@@ -35,6 +35,16 @@ func TestCleanKernelMessage(t *testing.T) {
 			input:    "   \t\n  ",
 			expected: "",
 		},
+		{
+			name:     "dmesg uptime timestamp format",
+			input:    "[100028.848625] kvm: ignored rdmsr: 0x492 data 0x0",
+			expected: "ignored rdmsr: 0x492 data 0x0",
+		},
+		{
+			name:     "dmesg ISO timestamp format",
+			input:    "2026-10-21T01:38:37,848625+01:00 kvm: ignored rdmsr: 0x492 data 0x0",
+			expected: "ignored rdmsr: 0x492 data 0x0",
+		},
 	}
 
 	for _, tc := range tests {
@@ -44,5 +54,12 @@ func TestCleanKernelMessage(t *testing.T) {
 				t.Errorf("CleanKernelMessage(%q) = %q, expected %q", tc.input, got, tc.expected)
 			}
 		})
+	}
+}
+
+func TestResolveBackend_Invalid(t *testing.T) {
+	_, _, err := ResolveBackend("invalid-backend")
+	if err == nil {
+		t.Fatalf("expected error for invalid backend, got nil")
 	}
 }

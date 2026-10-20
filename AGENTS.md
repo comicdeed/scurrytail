@@ -55,6 +55,17 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 
 ---
 
+## 📖 Documentation Standards & Target Audience Tuning
+
+When writing or updating user-facing documentation (`README.md`, `docs/user-guide.md`):
+
+- **Target Audience**: Tech-savvy Linux desktop users, system administrators, and hardware tinkerers.
+- **Core Principle: "Less is More"**: Provide maximum signal per sentence. Eliminate marketing buzzwords, conversational filler, and unnecessary adjectives.
+- **Outcome-First Explanations**: Explain what the user sees, what the tray icons mean, and how to operate the tool. Avoid leaking developer internals (channels, goroutines, D-Bus signatures) into end-user docs.
+- **Clear Separation**: Maintain architectural principles and internal mechanics in `AGENTS.md`; maintain operational instructions in `docs/user-guide.md` and `README.md`.
+
+---
+
 ## 🌿 Git & Release Workflows
 
 - **Branching Model**: Trunk-based development. Development occurs directly on `main` or short-lived feature branches.

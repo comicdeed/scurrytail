@@ -40,7 +40,7 @@ nfpms:
     formats:
       - deb
       - rpm
-    depends:
+    dependencies:
       - systemd
     contents:
       - src: systemd/dmesg-watch.service

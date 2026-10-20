@@ -148,27 +148,25 @@ func makeSpecForBinary(path string) *TerminalSpec {
 	}
 }
 
-// BuildCommand constructs the exec.Cmd for the requested command string using the resolved terminal.
-func BuildCommand(viewerCmd string) (*exec.Cmd, error) {
+// BuildCommandArgs constructs the exec.Cmd for the requested argument slice using the resolved terminal.
+func BuildCommandArgs(viewerArgs []string) (*exec.Cmd, error) {
 	spec, err := DetectTerminal()
 	if err != nil {
 		return nil, err
 	}
 
-	viewerCmd = strings.TrimSpace(viewerCmd)
-	if viewerCmd == "" {
-		viewerCmd = "journalctl -k -f -n 50"
+	if len(viewerArgs) == 0 {
+		viewerArgs = []string{"journalctl", "-k", "-f", "-n", "50"}
 	}
 
 	var cmdArgs []string
 	cmdArgs = append(cmdArgs, spec.ArgsPrefix...)
 
-	// If the viewer command contains shell syntax (pipes, redirects, multiple commands),
-	// wrap it inside `sh -c "<viewerCmd>"` for universal shell evaluation.
-	if strings.ContainsAny(viewerCmd, "|;&><$") {
-		cmdArgs = append(cmdArgs, "sh", "-c", viewerCmd)
+	// If a single argument contains shell metacharacters, wrap in sh -c
+	if len(viewerArgs) == 1 && strings.ContainsAny(viewerArgs[0], "|;&><$") {
+		cmdArgs = append(cmdArgs, "sh", "-c", viewerArgs[0])
 	} else {
-		cmdArgs = append(cmdArgs, strings.Fields(viewerCmd)...)
+		cmdArgs = append(cmdArgs, viewerArgs...)
 	}
 
 	cmd := exec.Command(spec.Binary, cmdArgs...)
@@ -176,6 +174,32 @@ func BuildCommand(viewerCmd string) (*exec.Cmd, error) {
 		Setsid: true,
 	}
 	return cmd, nil
+}
+
+// BuildCommand constructs the exec.Cmd for the requested command string using the resolved terminal.
+func BuildCommand(viewerCmd string) (*exec.Cmd, error) {
+	viewerCmd = strings.TrimSpace(viewerCmd)
+	if viewerCmd == "" {
+		return BuildCommandArgs(nil)
+	}
+	if strings.ContainsAny(viewerCmd, "|;&><$") {
+		return BuildCommandArgs([]string{viewerCmd})
+	}
+	return BuildCommandArgs(strings.Fields(viewerCmd))
+}
+
+// LaunchArgs resolves the terminal emulator and asynchronously runs the command args in a detached session.
+func LaunchArgs(viewerArgs []string) error {
+	cmd, err := BuildCommandArgs(viewerArgs)
+	if err != nil {
+		return fmt.Errorf("failed to build viewer command: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start terminal process (%s): %w", cmd.Path, err)
+	}
+
+	return nil
 }
 
 // Launch resolves the terminal emulator and asynchronously runs the viewer command in a detached session.

@@ -3,12 +3,58 @@ package journal
 import (
 	"bufio"
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
 
-// CleanKernelMessage extracts the core error message from a journalctl log line,
-// stripping timestamp, hostname, and kernel/syslog prefixes.
+// ResolveBackend validates and resolves the streaming backend ("auto", "journalctl", or "dmesg").
+// It returns the normalized backend name, default viewer command, or an error if prerequisites are missing.
+func ResolveBackend(requested string) (backend string, defaultViewer string, err error) {
+	req := strings.ToLower(strings.TrimSpace(requested))
+	switch req {
+	case "", "auto":
+		if isSystemdBooted() && hasCommand("journalctl") {
+			return "journalctl", "journalctl -k -f -n 50", nil
+		}
+		if hasCommand("dmesg") {
+			return "dmesg", "dmesg -w -l err,crit,alert,emerg -T", nil
+		}
+		if hasCommand("journalctl") {
+			return "journalctl", "journalctl -k -f -n 50", nil
+		}
+		return "", "", fmt.Errorf("neither 'journalctl' nor 'dmesg' could be found on PATH")
+
+	case "journalctl", "journald":
+		if !hasCommand("journalctl") {
+			return "", "", fmt.Errorf("'journalctl' not found on PATH")
+		}
+		return "journalctl", "journalctl -k -f -n 50", nil
+
+	case "dmesg":
+		if !hasCommand("dmesg") {
+			return "", "", fmt.Errorf("'dmesg' not found on PATH")
+		}
+		return "dmesg", "dmesg -w -l err,crit,alert,emerg -T", nil
+
+	default:
+		return "", "", fmt.Errorf("unsupported backend %q (valid options: auto, journalctl, dmesg)", requested)
+	}
+}
+
+func isSystemdBooted() bool {
+	info, err := os.Stat("/run/systemd/system")
+	return err == nil && info.IsDir()
+}
+
+func hasCommand(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+// CleanKernelMessage extracts the core error message from a log line,
+// stripping timestamps (ISO or uptime seconds), hostname, and kernel/syslog prefixes.
 func CleanKernelMessage(raw string) string {
 	line := strings.TrimSpace(raw)
 	if line == "" {
@@ -25,16 +71,45 @@ func CleanKernelMessage(raw string) string {
 		return strings.TrimSpace(line[idx+len("]: "):])
 	}
 
+	// Case 3: dmesg uptime timestamp format ("[12345.678901] <msg>")
+	if strings.HasPrefix(line, "[") {
+		if closeIdx := strings.Index(line, "] "); closeIdx != -1 {
+			remainder := strings.TrimSpace(line[closeIdx+2:])
+			if colIdx := strings.Index(remainder, ": "); colIdx != -1 {
+				return strings.TrimSpace(remainder[colIdx+2:])
+			}
+			return remainder
+		}
+	}
+
+	// Case 4: dmesg ISO timestamp format ("2026-10-21T01:38:37,848625+01:00 <subsystem>: <msg>")
+	if len(line) > 25 && line[10] == 'T' {
+		if spIdx := strings.Index(line, " "); spIdx != -1 {
+			remainder := strings.TrimSpace(line[spIdx+1:])
+			if colIdx := strings.Index(remainder, ": "); colIdx != -1 {
+				return strings.TrimSpace(remainder[colIdx+2:])
+			}
+			return remainder
+		}
+	}
+
 	return line
 }
 
-// Stream launches journalctl -k -f -n 0 -p 3 --output short-precise in the background,
+// Stream launches the requested backend in the background,
 // emitting cleaned log lines to the returned channel until ctx is cancelled.
-func Stream(ctx context.Context) (<-chan string, <-chan error) {
+func Stream(ctx context.Context, backend string) (<-chan string, <-chan error) {
 	msgCh := make(chan string, 32)
 	errCh := make(chan error, 1)
 
-	cmd := exec.CommandContext(ctx, "journalctl", "-k", "-f", "-n", "0", "-p", "3", "--output", "short-precise")
+	var cmd *exec.Cmd
+	switch backend {
+	case "dmesg":
+		cmd = exec.CommandContext(ctx, "dmesg", "-W", "-l", "err,crit,alert,emerg", "--time-format=iso")
+	default:
+		cmd = exec.CommandContext(ctx, "journalctl", "-k", "-f", "-n", "0", "-p", "3", "--output", "short-precise")
+	}
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		errCh <- err
