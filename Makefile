@@ -13,7 +13,7 @@ all: build
 
 build:
 	@mkdir -p bin
-	$(GO) build $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/$(APP_NAME)
+	CGO_ENABLED=0 $(GO) build $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/$(APP_NAME)
 
 test:
 	$(GO) test -v -race ./...
