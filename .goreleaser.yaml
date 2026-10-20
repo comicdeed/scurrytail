@@ -60,6 +60,13 @@ aurs:
 checksum:
   name_template: "checksums.txt"
 
+release:
+  github:
+    owner: comicdeed
+    name: dmesg-watch
+  prerelease: auto
+  mode: replace
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
