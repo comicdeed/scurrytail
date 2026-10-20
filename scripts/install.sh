@@ -36,14 +36,17 @@ if [ "$ACTION" = "install" ]; then
     fi
     chmod 755 "$BIN_DIR/dmesg-watch"
 
+    SERVICE_SRC=""
     if [ -f "./systemd/dmesg-watch.service" ]; then
-        cp -f "./systemd/dmesg-watch.service" "$SYSTEMD_DIR/dmesg-watch.service"
+        SERVICE_SRC="./systemd/dmesg-watch.service"
     elif [ -f "./dmesg-watch.service" ]; then
-        cp -f "./dmesg-watch.service" "$SYSTEMD_DIR/dmesg-watch.service"
+        SERVICE_SRC="./dmesg-watch.service"
     else
         echo "Error: dmesg-watch.service not found" >&2
         exit 1
     fi
+    sed "s|ExecStart=/usr/bin/dmesg-watch|ExecStart=$BIN_DIR/dmesg-watch|" "$SERVICE_SRC" > "$SYSTEMD_DIR/dmesg-watch.service"
+    chmod 644 "$SYSTEMD_DIR/dmesg-watch.service"
 
     echo "==> Reloading systemd user daemon..."
     systemctl --user daemon-reload || true
