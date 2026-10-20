@@ -1,0 +1,24 @@
+# Binaries
+bin/
+dist/
+/dmesg-watch
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
