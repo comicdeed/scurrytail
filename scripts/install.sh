@@ -51,9 +51,10 @@ if [ "$ACTION" = "install" ]; then
     echo "==> Reloading systemd user daemon..."
     systemctl --user daemon-reload || true
 
-    echo "==> Installation complete!"
-    echo "To enable and start immediately, run:"
-    echo "  systemctl --user enable --now dmesg-watch.service"
+    echo "==> Enabling and starting dmesg-watch user service..."
+    systemctl --user enable --now dmesg-watch.service || true
+
+    echo "==> Installation complete! dmesg-watch is active."
 else
     echo "==> Stopping service if active..."
     systemctl --user stop dmesg-watch.service 2>/dev/null || true

@@ -38,16 +38,15 @@ sudo usermod -aG adm $USER
 git clone https://github.com/comicdeed/dmesg-watch.git
 cd dmesg-watch
 
-# Build and install to ~/.local/bin and systemd user directory
+# Build, install, and automatically start user service
 make install
-
-# Enable and start the systemd user service
-make service-enable
 ```
 
-To check service status:
+To control or inspect the service:
 ```bash
 make service-status
+make service-disable
+make service-enable
 ```
 
 To uninstall:

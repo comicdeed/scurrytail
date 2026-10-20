@@ -28,8 +28,9 @@ install: build
 	sed 's|ExecStart=/usr/bin/$(APP_NAME)|ExecStart=$(PREFIX)/bin/$(APP_NAME)|' systemd/$(APP_NAME).service > $(SYSTEMD_USER_DIR)/$(APP_NAME).service
 	chmod 644 $(SYSTEMD_USER_DIR)/$(APP_NAME).service
 	systemctl --user daemon-reload || true
+	systemctl --user enable --now $(APP_NAME).service || true
 	@echo "Installed $(APP_NAME) to $(PREFIX)/bin/$(APP_NAME)"
-	@echo "Installed systemd service to $(SYSTEMD_USER_DIR)/$(APP_NAME).service"
+	@echo "Enabled and started $(APP_NAME).service in user session"
 
 uninstall:
 	systemctl --user stop $(APP_NAME).service 2>/dev/null || true
@@ -53,6 +54,7 @@ dist: build
 	@mkdir -p dist/$(APP_NAME)-$(VERSION)-linux-amd64
 	cp bin/$(APP_NAME) dist/$(APP_NAME)-$(VERSION)-linux-amd64/
 	cp systemd/$(APP_NAME).service dist/$(APP_NAME)-$(VERSION)-linux-amd64/
+	cp systemd/50-$(APP_NAME).preset dist/$(APP_NAME)-$(VERSION)-linux-amd64/
 	cp scripts/install.sh dist/$(APP_NAME)-$(VERSION)-linux-amd64/
 	cp README.md dist/$(APP_NAME)-$(VERSION)-linux-amd64/
 	tar -czf dist/$(APP_NAME)-$(VERSION)-linux-amd64.tar.gz -C dist $(APP_NAME)-$(VERSION)-linux-amd64
