@@ -5,6 +5,26 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.5] - 2026-10-21
+
+Adds multi-layer systemd and journalctl prerequisite validation to safely abort installation on non-systemd systems.
+
+### ✨ Highlights
+* **✨ Safe Non-Systemd Abort**: Added declarative package dependency on `systemd` and a `preinstall` verification hook to halt `.deb` / `.rpm` installation on non-systemd systems (e.g. Devuan, antiX, SysVinit, OpenRC) before any files are unpacked.
+* **✨ Installer Prerequisite Verification**: Added prerequisite checks to `scripts/install.sh` and startup checks to `cmd/dmesg-watch/main.go` verifying that `journalctl` and a running systemd instance are present.
+* **GUI Software Center Support**: Enhanced package lifecycle hooks to discover active desktop sessions via `/run/user/*` instead of relying on `$SUDO_USER`, enabling automatic service activation when installing through KDE Discover, GNOME Software, or PackageKit.
+* **Automatic Service Enablement**: Packages (`.deb`, `.rpm`) and installer scripts now automatically enable and start `dmesg-watch.service` under the active desktop user session immediately upon installation.
+* **Declarative Systemd Preset**: Installed a system-wide user preset (`50-dmesg-watch.preset`) ensuring the service starts automatically on future desktop logins.
+* **Native About Submenu & Website Launcher**: Converted the About item into a native tray submenu featuring application details and a "Website" action that opens the project repository in your default web browser via `xdg-open`.
+* **Decluttered Top-Level Menu**: Relocated static version metadata into the About submenu and adopted standard desktop single-word actions (`About`, `Quit`).
+* **Quick Drill-Down to Kernel Logs**: Added a "View Kernel Logs (journalctl)" action to the system tray menu to instantly open full kernel logs in your default terminal with continuous live tailing (`journalctl -k -f -n 50`).
+* **Smart Terminal Emulator Detection**: Automatically detects Ghostty, KDE Plasma desktop terminal preferences (`kdeglobals`), `$TERMINAL`, `xdg-terminal-exec`, and common desktop terminals.
+
+### 🛠️ Technical Notes
+* ✨ Implemented `scripts/preinstall.sh` validating `command -v journalctl` and the standard `sd_booted` directory check (`/run/systemd/system`).
+* ✨ Added `depends: [systemd]` to nfpm package definition in `.goreleaser.yaml`.
+* ✨ Added runtime `exec.LookPath("journalctl")` guard in `cmd/dmesg-watch/main.go`.
+
 ## [v0.3.0-beta.4] - 2026-10-20
 
 Adds dynamic active-session discovery to ensure automatic service activation works under GUI package managers (Discover, GNOME Software, PackageKit).
