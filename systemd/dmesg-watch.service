@@ -1,0 +1,12 @@
+[Unit]
+Description=dmesg watch - System Tray Kernel Error Monitor
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/dmesg-watch
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
