@@ -8,20 +8,24 @@ import (
 	"fyne.io/systray"
 )
 
-//go:embed assets/icon.png
-var defaultIcon []byte
+//go:embed assets/icon_normal.png
+var iconNormal []byte
+
+//go:embed assets/icon_warning.png
+var iconWarning []byte
 
 // Tray manages the system tray icon, tooltips, and context menu items.
 type Tray struct {
-	mu        sync.Mutex
-	version   string
-	mStats    *systray.MenuItem
-	mLatest   *systray.MenuItem
-	mAbout    *systray.MenuItem
-	mQuit     *systray.MenuItem
-	onAbout   func()
-	onQuit    func()
-	readyChan chan struct{}
+	mu             sync.Mutex
+	version        string
+	isWarningState bool
+	mStats         *systray.MenuItem
+	mLatest        *systray.MenuItem
+	mAbout         *systray.MenuItem
+	mQuit          *systray.MenuItem
+	onAbout        func()
+	onQuit         func()
+	readyChan      chan struct{}
 }
 
 // New initializes a Tray instance with callbacks for About and user-triggered exit.
@@ -42,11 +46,13 @@ func (t *Tray) Ready() <-chan struct{} {
 // Init sets up the StatusNotifierItem properties and context menu structure.
 // This must be called inside the systray.Run onReady callback.
 func (t *Tray) Init() {
-	systray.SetIcon(defaultIcon)
+	systray.SetIcon(iconNormal)
 	systray.SetTitle("dmesg-watch")
 	systray.SetTooltip(fmt.Sprintf("dmesg-watch %s - Monitoring Kernel", t.version))
 
 	t.mu.Lock()
+	t.isWarningState = false
+
 	// Unclickable title header showing application and version
 	mTitle := systray.AddMenuItem(fmt.Sprintf("dmesg-watch %s", t.version), "Application version")
 	mTitle.Disable()
@@ -86,7 +92,8 @@ func (t *Tray) Init() {
 	}()
 }
 
-// Update dynamically refreshes the menu items with updated error metrics.
+// Update dynamically refreshes the menu items and switches the tray icon
+// between the calm normal icon (0 errors) and the amber warning icon (> 0 errors).
 func (t *Tray) Update(count int, latest string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -102,6 +109,17 @@ func (t *Tray) Update(count int, latest string) {
 
 	t.mStats.SetTitle(fmt.Sprintf("Errors (Last 60s): %d", count))
 	t.mLatest.SetTitle(fmt.Sprintf("Latest: %s", truncated))
+
+	// Dynamic icon switching: switch to warning when errors occur, back to calm when clear
+	shouldWarn := count > 0
+	if shouldWarn != t.isWarningState {
+		t.isWarningState = shouldWarn
+		if shouldWarn {
+			systray.SetIcon(iconWarning)
+		} else {
+			systray.SetIcon(iconNormal)
+		}
+	}
 }
 
 // Run blocks and starts the tray event loop.

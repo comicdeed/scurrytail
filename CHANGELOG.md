@@ -5,6 +5,27 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0-beta.4] - 2026-10-20
+
+This beta introduces dynamic tray icon state transitions, keeping the desktop interface quiet and unobtrusive when no errors are detected.
+
+### ✨ Highlights
+* **Dynamic Calm/Alert Icon States**: The tray icon now displays a subtle, monochrome monitor outline when healthy (0 errors in the last 60s), transitioning to the amber warning icon only when errors are present.
+* **Seamless Package Startup**: Installing via `.deb` or `.rpm` works immediately out of the box without systemd execution errors.
+* **Universal Distribution Compatibility**: Binaries across `.deb`, `.rpm`, and tarball packages are compiled completely statically, eliminating `glibc` version dependencies.
+* **Real-time Error Awareness**: Instantly flags kernel faults as they occur without manual terminal inspection.
+* **Quiet by Default**: Background tray dashboard tracks error frequency across a rolling 60-second window, alerting only when issues surge.
+* **Flood Protection**: Smart notification cooldown prevents banner spam when drivers or hardware emit error bursts.
+* **Desktop Native**: Integrates into the system tray across KDE Plasma, GNOME, Sway, and Waybar.
+* **At-a-Glance Dashboard**: Context menu presents live error counts, latest truncated message, and quick links to project information.
+
+### 🛠️ Technical Notes
+* ✨ Added embedded `assets/icon_normal.png` (neutral panel monitor) alongside `assets/icon_warning.png` (amber alert shield).
+* ✨ Implemented state-change detection in `internal/tray` to update D-Bus icon properties only upon state transitions, eliminating redundant D-Bus traffic during idle ticks.
+* Fixed systemd user unit `ExecStart` target in `.deb` and `.rpm` packages to point to `/usr/bin/dmesg-watch` instead of user-local paths.
+* Added dynamic path rewriting in `Makefile` and `scripts/install.sh` to configure `ExecStart` accurately for local user-prefix installs.
+* Configured `CGO_ENABLED=0` across GoReleaser and Makefile to produce pure static ELF binaries without dynamic `libc` dependencies.
+
 ## [v0.2.0-beta.3] - 2026-10-20
 
 This maintenance beta resolves service execution failures when running from Debian and RPM packages.

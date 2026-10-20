@@ -18,7 +18,7 @@ import (
 
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.2.0-beta.3"
+	version = "v0.2.0-beta.4"
 )
 
 func main() {
