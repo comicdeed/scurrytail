@@ -97,3 +97,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUR_KEY: ${{ secrets.AUR_KEY }}
+
+      - name: Prune older pre-releases (Sliding window of 3)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          echo "Evaluating pre-releases for sliding-window retention (keeping 3 most recent)..."
+
+          PRERELEASES=$(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease == true) | .tagName')
+
+          COUNT=0
+          KEEP=3
+          for TAG in $PRERELEASES; do
+            COUNT=$((COUNT + 1))
+            if [ "$COUNT" -gt "$KEEP" ]; then
+              echo "Pruning older pre-release: $TAG (rank #$COUNT, keeping newest $KEEP)..."
+              gh release delete "$TAG" --yes || echo "Warning: Could not delete release $TAG"
+            else
+              echo "Keeping recent pre-release: $TAG (rank #$COUNT)"
+            fi
+          done

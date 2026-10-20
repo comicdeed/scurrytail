@@ -62,3 +62,4 @@ When the `release/*` PR is merged into `main`, [`.github/workflows/release.yml`]
    - Packages `.deb` and `.rpm` files with systemd user unit definitions.
    - Packages release tarballs and checksums.
 4. **Publish**: Creates the GitHub Release with the extracted release notes, attaches all package assets, and marks it as a **Pre-release** if the tag contains `beta`, `alpha`, or `rc`.
+5. **Pre-Release Retention**: Automatically prunes older historical pre-releases on GitHub, retaining a sliding window of the 3 most recent while preserving Git tags.
