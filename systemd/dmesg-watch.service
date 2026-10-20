@@ -4,7 +4,7 @@ After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
-ExecStart=%h/.local/bin/dmesg-watch
+ExecStart=/usr/bin/dmesg-watch
 Restart=on-failure
 RestartSec=5
 

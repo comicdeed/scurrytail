@@ -25,7 +25,8 @@ install: build
 	@mkdir -p $(PREFIX)/bin
 	@mkdir -p $(SYSTEMD_USER_DIR)
 	install -m 755 bin/$(APP_NAME) $(PREFIX)/bin/$(APP_NAME)
-	install -m 644 systemd/$(APP_NAME).service $(SYSTEMD_USER_DIR)/$(APP_NAME).service
+	sed 's|ExecStart=/usr/bin/$(APP_NAME)|ExecStart=$(PREFIX)/bin/$(APP_NAME)|' systemd/$(APP_NAME).service > $(SYSTEMD_USER_DIR)/$(APP_NAME).service
+	chmod 644 $(SYSTEMD_USER_DIR)/$(APP_NAME).service
 	systemctl --user daemon-reload || true
 	@echo "Installed $(APP_NAME) to $(PREFIX)/bin/$(APP_NAME)"
 	@echo "Installed systemd service to $(SYSTEMD_USER_DIR)/$(APP_NAME).service"
