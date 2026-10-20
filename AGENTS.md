@@ -26,7 +26,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 - **`internal/tracker`**: Rate monitoring and state machine.
   - Maintains the concurrency-safe sliding-window queue of error timestamps. Evaluates rate thresholds, sliding-window expirations, and notification cooldowns.
 - **`internal/notify`**: Desktop notification dispatcher.
-  - Formats and sends alerts directly over the D-Bus session bus, supporting HTML anchor tags for clickable links.
+  - Formats and sends rate-threshold alerts directly over the D-Bus session bus with urgency levels and cooldown suppression.
 - **`internal/tray`**: System tray interface.
   - Publishes the `StatusNotifierItem` interface, embeds default icon assets, dynamically updates menu labels, and routes user clicks.
 - **`systemd/`**: User session service unit configurations (`graphical-session.target`).

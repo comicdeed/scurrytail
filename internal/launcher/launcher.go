@@ -191,3 +191,21 @@ func Launch(viewerCmd string) error {
 
 	return nil
 }
+
+// OpenURL launches the specified URL in the user's default web browser using xdg-open.
+func OpenURL(rawURL string) error {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return errors.New("cannot open empty URL")
+	}
+
+	cmd := exec.Command("xdg-open", rawURL)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to open URL via xdg-open: %w", err)
+	}
+
+	return nil
+}

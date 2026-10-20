@@ -23,19 +23,20 @@ type Tray struct {
 	mLatest        *systray.MenuItem
 	mViewLogs      *systray.MenuItem
 	mAbout         *systray.MenuItem
+	mWebsite       *systray.MenuItem
 	mQuit          *systray.MenuItem
 	onViewLogs     func()
-	onAbout        func()
+	onWebsite      func()
 	onQuit         func()
 	readyChan      chan struct{}
 }
 
-// New initializes a Tray instance with callbacks for log viewing, About, and user-triggered exit.
-func New(version string, onViewLogs func(), onAbout func(), onQuit func()) *Tray {
+// New initializes a Tray instance with callbacks for log viewing, Website URL opening, and user-triggered exit.
+func New(version string, onViewLogs func(), onWebsite func(), onQuit func()) *Tray {
 	return &Tray{
 		version:    version,
 		onViewLogs: onViewLogs,
-		onAbout:    onAbout,
+		onWebsite:  onWebsite,
 		onQuit:     onQuit,
 		readyChan:  make(chan struct{}),
 	}
@@ -56,12 +57,6 @@ func (t *Tray) Init() {
 	t.mu.Lock()
 	t.isWarningState = false
 
-	// Unclickable title header showing application and version
-	mTitle := systray.AddMenuItem(fmt.Sprintf("dmesg-watch %s", t.version), "Application version")
-	mTitle.Disable()
-
-	systray.AddSeparator()
-
 	t.mStats = systray.AddMenuItem("Errors (Last 60s): 0", "Count of kernel errors in the rolling window")
 	t.mStats.Disable()
 
@@ -77,8 +72,21 @@ func (t *Tray) Init() {
 
 	systray.AddSeparator()
 
-	t.mAbout = systray.AddMenuItem("About dmesg-watch", "Show version and project information")
-	t.mQuit = systray.AddMenuItem("Quit dmesg watch", "Terminate dmesg-watch background monitor")
+	t.mAbout = systray.AddMenuItem("About", "Show version and project information")
+	mVersion := t.mAbout.AddSubMenuItem(fmt.Sprintf("dmesg-watch %s", t.version), "Application version")
+	mVersion.Disable()
+
+	mDesc := t.mAbout.AddSubMenuItem("Real-time kernel error monitor", "Application summary")
+	mDesc.Disable()
+
+	t.mAbout.AddSeparator()
+
+	t.mWebsite = t.mAbout.AddSubMenuItem("Website", "Open project repository in default browser")
+	if t.onWebsite == nil {
+		t.mWebsite.Disable()
+	}
+
+	t.mQuit = systray.AddMenuItem("Quit", "Terminate background monitor")
 	t.mu.Unlock()
 
 	close(t.readyChan)
@@ -91,13 +99,13 @@ func (t *Tray) Init() {
 		}()
 	}
 
-	go func() {
-		for range t.mAbout.ClickedCh {
-			if t.onAbout != nil {
-				t.onAbout()
+	if t.onWebsite != nil {
+		go func() {
+			for range t.mWebsite.ClickedCh {
+				t.onWebsite()
 			}
-		}
-	}()
+		}()
+	}
 
 	go func() {
 		for range t.mQuit.ClickedCh {

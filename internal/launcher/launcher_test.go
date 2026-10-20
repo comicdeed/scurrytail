@@ -77,3 +77,12 @@ func TestBuildCommand(t *testing.T) {
 		}
 	})
 }
+
+func TestOpenURL_Empty(t *testing.T) {
+	if err := OpenURL(""); err == nil {
+		t.Errorf("expected error for empty URL, got nil")
+	}
+	if err := OpenURL("   "); err == nil {
+		t.Errorf("expected error for whitespace URL, got nil")
+	}
+}
