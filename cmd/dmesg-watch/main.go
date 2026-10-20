@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/comicdeed/dmesg-watch/internal/journal"
+	"github.com/comicdeed/dmesg-watch/internal/launcher"
 	"github.com/comicdeed/dmesg-watch/internal/notify"
 	"github.com/comicdeed/dmesg-watch/internal/tracker"
 	"github.com/comicdeed/dmesg-watch/internal/tray"
@@ -18,7 +19,7 @@ import (
 
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.2.0"
+	version = "v0.3.0-beta.1"
 )
 
 func main() {
@@ -26,6 +27,7 @@ func main() {
 		threshold   = flag.Int("threshold", 5, "Number of kernel errors per window to trigger an alert")
 		window      = flag.Duration("window", 60*time.Second, "Rolling evaluation window duration")
 		cooldown    = flag.Duration("cooldown", 45*time.Second, "Notification suppression cooldown period")
+		viewerCmd   = flag.String("viewer-cmd", "journalctl -k -f -n 50", "Command to view kernel logs in terminal")
 		showVersion = flag.Bool("version", false, "Print application version and exit")
 	)
 	flag.Parse()
@@ -53,6 +55,11 @@ func main() {
 	var uiTray *tray.Tray
 	uiTray = tray.New(
 		version,
+		func() {
+			if err := launcher.Launch(*viewerCmd); err != nil {
+				log.Printf("Failed to open kernel log viewer: %v", err)
+			}
+		},
 		func() {
 			summary := fmt.Sprintf("dmesg-watch %s", version)
 			body := "Real-time Linux kernel error monitoring tray daemon.\n<a href=\"https://github.com/comicdeed/dmesg-watch\">https://github.com/comicdeed/dmesg-watch</a>"

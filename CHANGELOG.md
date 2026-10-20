@@ -5,6 +5,20 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.1] - 2026-10-20
+
+Introduces one-click terminal log inspection to seamlessly transition from tray visibility to active debugging.
+
+### ✨ Highlights
+* **✨ Quick Drill-Down to Kernel Logs**: Added a "View Kernel Logs (journalctl)" action to the system tray menu to instantly open full kernel logs in your default terminal with continuous live tailing (`journalctl -k -f -n 50`).
+* **✨ Smart Terminal Emulator Detection**: Automatically detects Ghostty, KDE Plasma desktop terminal preferences (`kdeglobals`), `$TERMINAL`, `xdg-terminal-exec`, and common desktop terminals (`konsole`, `gnome-terminal`, `ptyxis`, `alacritty`, `xfce4-terminal`, etc.).
+* **✨ Configurable Viewer Command**: Added a `--viewer-cmd` CLI option allowing users to customize their log viewer command or attach alternative tools.
+
+### 🛠️ Technical Notes
+* ✨ Implemented `internal/launcher` with detached process isolation (`syscall.SysProcAttr{Setsid: true}`) so opened terminal windows persist independently across daemon restarts.
+* ✨ Added terminal fallback cascade validating executable existence on disk before dispatch.
+* ✨ Integrated click event handling in `internal/tray` with asynchronous non-blocking process dispatch.
+
 ## [v0.2.0] - 2026-10-20
 
 The first feature milestone of dmesg-watch, delivering a lightweight, resource-conscious Linux background daemon for real-time kernel error monitoring with native desktop tray integration.
