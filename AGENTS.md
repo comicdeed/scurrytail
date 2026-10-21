@@ -80,6 +80,20 @@ When writing or updating user-facing documentation (`README.md`, `docs/user-guid
 - **Outcome-First Explanations**: Explain what the user sees, what the tray icons mean, and how to operate the tool. Avoid leaking developer internals (channels, goroutines, D-Bus signatures) into end-user docs.
 - **Clear Separation**: Maintain architectural principles and internal mechanics in `AGENTS.md`; maintain operational instructions in `docs/user-guide.md` and `README.md`.
 
+### 📄 README.md Lifecycle & Maintenance Rules
+
+`README.md` is strictly the project storefront. Keep it under ~50 lines following this fixed layout:
+1. **Title & One-Liner Hook**: Calm, confident description of what the tool does (e.g. ~15MB RAM footprint, intelligent burst flood dampening). Avoid theatrical melodrama (*"dead silent until errors strike"*).
+2. **Visual Anchor**: Screenshot preview (`docs/assets/screenshot.png`).
+3. **`## Highlights`**: Exactly 5 bullet points with emoji prefixes. Lead with the user benefit, follow with the technical mechanism.
+4. **`## Quick Start`**: Exactly 3 concise one-liners (Distro Packages with release link, Nix/NixOS runner, Source build).
+5. **Handoff**: A single link pointing to `docs/user-guide.md` for deep configuration and troubleshooting.
+
+#### Feature Additions & Modification Protocol
+- **New CLI Flags or Config Options**: Add to `docs/user-guide.md` only. **Never** add raw flag tables or YAML schemas to `README.md`.
+- **New Major Capabilities**: Fully document in `docs/user-guide.md`. Only update `README.md` if the change replaces one of the top 5 flagship capabilities; maintain the strict 5-bullet ceiling in `## Highlights`.
+- **Packaging Changes**: Only update `Quick Start` in `README.md` if a primary installation path changes.
+
 ---
 
 ## 🌿 Git & Release Workflows
