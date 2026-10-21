@@ -23,7 +23,7 @@ Adds complete declarative Nix and NixOS support for Home Manager, NixOS system c
 * ✨ Implemented `nix/package.nix` with static `CGO_ENABLED=0` build and `makeWrapper` for runtime binary wrapping (`systemd`, `util-linux`, `xdg-utils`).
 * ✨ Implemented `nix/hm-module.nix` and `nix/nixos-module.nix` with typed option definitions and YAML serialization.
 * ✨ Added `docs/nix-docker-guide.md` and updated `AGENTS.md` with targeted validation workflows.
-* ✨ Fixed `go.mod` compiler version requirement to `go 1.23.0`.
+* ✨ Aligned Go toolchain to `go 1.27.2` with automated `go-version-file` synchronization across CI workflows.
 
 ## [v0.3.0-beta.6] - 2026-10-21
 

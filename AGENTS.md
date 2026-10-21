@@ -62,6 +62,11 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 - **Workflow changes**: Verify GitHub Actions workflow syntax using `actionlint .github/workflows/*.yml` only when `.github/workflows` is modified.
 - **Targeted validation**: Do not run Nix checks (`make nix-check`, `make nix-build`) for standard Go code edits; only invoke Nix targets when altering Nix expressions, Flake outputs, or Go module dependencies (`go.mod`).
 
+### 🐹 Go Toolchain & Version Management
+- **Single Source of Truth**: `go.mod` is the single authority for the project's minimum and active Go version.
+- **Automated Workflow Alignment**: Never hardcode static `go-version` strings in GitHub Actions. Always configure `actions/setup-go@v5` with `go-version-file: 'go.mod'` across all `.github/workflows/*.yml` files.
+- **Docker Fallback Synchronization**: The `Makefile` dynamically dispatches through `$(GOLANG_IMAGE)` (defaulting to `golang:alpine`) when native `go` is missing from the host. When bumping `go.mod`, ensure the toolchain image satisfies the declared version.
+
 ### Nix Development & Docker Fallback
 - The `Makefile` dynamically detects if native `nix` is installed on the host. If missing, it transparently executes through the `nixos/nix:latest` container.
 - For complete operational details and instructions on updating `vendorHash` when Go dependencies change, consult the [Nix Development Guide](docs/nix-docker-guide.md).
