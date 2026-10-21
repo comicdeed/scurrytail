@@ -46,6 +46,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 
 ### Make Targets
 - **`make build`**: Builds the binary to `bin/dmesg-watch` with embedded Git version tags.
+- **`make fmt`**: Formats all Go source files using `gofmt` (using host toolchain or auto Docker fallback).
 - **`make test`**: Runs unit tests with race detection (`go test -v -race ./...`).
 - **`make vet`**: Runs Go static analysis (`go vet ./...`).
 - **`make nix-build`**: Compiles the Nix package derivation (using host `nix` or auto Docker fallback).
@@ -56,7 +57,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 - **`make service-enable` / `make service-status`**: Controls and inspects the live user systemd service.
 
 ### Formatting & Linting
-- **Go changes**: Always format modified Go files using `gofmt -w -s .` before running tests.
+- **Go changes**: Always format modified Go files using `make fmt` (or `gofmt -w -s .`) before running tests.
 - **Nix changes**: Format modified Nix files using `make nix-fmt` only when `.nix` files or `flake.nix` are touched.
 - **Workflow changes**: Verify GitHub Actions workflow syntax using `actionlint .github/workflows/*.yml` only when `.github/workflows` is modified.
 - **Targeted validation**: Do not run Nix checks (`make nix-check`, `make nix-build`) for standard Go code edits; only invoke Nix targets when altering Nix expressions, Flake outputs, or Go module dependencies (`go.mod`).

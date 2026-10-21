@@ -1,13 +1,25 @@
 APP_NAME := dmesg-watch
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "v0.1.0")
-GO ?= $(shell which go 2>/dev/null || ( [ -x $(HOME)/.local/share/brew/bin/go ] && echo $(HOME)/.local/share/brew/bin/go ) || echo /home/linuxbrew/.linuxbrew/opt/go/bin/go)
+
+# Go Toolchain (native binary with automatic Docker fallback)
+GO_BIN ?= $(shell which go 2>/dev/null || ( [ -x $(HOME)/.local/share/brew/bin/go ] && echo $(HOME)/.local/share/brew/bin/go ))
+GOLANG_IMAGE ?= golang:alpine
+ifeq ($(GO_BIN),)
+GO ?= docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e CGO_ENABLED=0 $(GOLANG_IMAGE) go
+GOFMT ?= docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) $(GOLANG_IMAGE) gofmt
+TEST_FLAGS ?= -v
+else
+GO ?= $(GO_BIN)
+GOFMT ?= $(shell which gofmt 2>/dev/null || echo gofmt)
+TEST_FLAGS ?= -v -race
+endif
 
 PREFIX ?= $(HOME)/.local
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 
 LDFLAGS := -ldflags "-X main.version=$(VERSION) -s -w"
 
-.PHONY: all build test vet clean install uninstall service-enable service-disable service-status dist nix-build nix-check nix-fmt
+.PHONY: all build fmt test vet clean install uninstall service-enable service-disable service-status dist nix-build nix-check nix-fmt
 
 all: build
 
@@ -15,8 +27,11 @@ build:
 	@mkdir -p bin
 	CGO_ENABLED=0 $(GO) build $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/$(APP_NAME)
 
+fmt:
+	$(GOFMT) -w -s .
+
 test:
-	$(GO) test -v -race ./...
+	$(GO) test $(TEST_FLAGS) ./...
 
 vet:
 	$(GO) vet ./...
