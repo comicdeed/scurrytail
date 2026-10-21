@@ -7,7 +7,7 @@ SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 
 LDFLAGS := -ldflags "-X main.version=$(VERSION) -s -w"
 
-.PHONY: all build test vet clean install uninstall service-enable service-disable service-status dist
+.PHONY: all build test vet clean install uninstall service-enable service-disable service-status dist nix-build nix-check nix-fmt
 
 all: build
 
@@ -63,3 +63,21 @@ dist: build
 
 clean:
 	rm -rf bin/ dist/
+
+# Nix Toolchain (native binary with automatic Docker fallback)
+NIX_BIN ?= $(shell which nix 2>/dev/null)
+ifeq ($(NIX_BIN),)
+NIX ?= docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) nixos/nix:latest nix --extra-experimental-features "nix-command flakes"
+else
+NIX ?= $(NIX_BIN) --extra-experimental-features "nix-command flakes"
+endif
+
+nix-build:
+	$(NIX) build path:.
+
+nix-check:
+	$(NIX) flake check path:. --no-build
+
+nix-fmt:
+	$(NIX) run nixpkgs#nixpkgs-fmt -- flake.nix nix/*.nix
+

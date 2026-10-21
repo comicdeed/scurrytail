@@ -1,6 +1,6 @@
 module github.com/comicdeed/dmesg-watch
 
-go 1.27.2
+go 1.23.0
 
 require (
 	fyne.io/systray v1.12.2

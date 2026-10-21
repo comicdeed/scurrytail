@@ -163,3 +163,50 @@ systemctl --user disable dmesg-watch.service
 ```bash
 systemctl --user enable --now dmesg-watch.service
 ```
+
+---
+
+## ❄️ Nix & NixOS
+
+### 1. Run Ad-Hoc
+```bash
+nix run github:codemedic/dmesg-watch
+```
+
+### 2. Home Manager (Per-User)
+Add the input to `flake.nix`:
+```nix
+inputs.dmesg-watch.url = "github:codemedic/dmesg-watch";
+```
+
+Import and enable in Home Manager:
+```nix
+{ inputs, ... }: {
+  imports = [ inputs.dmesg-watch.homeManagerModules.default ];
+
+  services.dmesg-watch = {
+    enable = true;
+    backend = "journalctl";
+    threshold = 5;
+    window = "1m";
+    cooldown = "45s";
+    viewerCmd = [ "ghostty" "-e" "journalctl" "-k" "-f" "-n" "50" ];
+  };
+}
+```
+
+### 3. NixOS System Configuration (System-Wide)
+Add the module in `/etc/nixos/configuration.nix`:
+```nix
+{ inputs, ... }: {
+  imports = [ inputs.dmesg-watch.nixosModules.default ];
+
+  services.dmesg-watch = {
+    enable = true;
+    backend = "auto";
+    threshold = 5;
+  };
+}
+```
+This installs `dmesg-watch` system-wide and automatically starts the service for any desktop session (`graphical-session.target`).
+

@@ -62,6 +62,15 @@ make uninstall
 go install github.com/comicdeed/dmesg-watch/cmd/dmesg-watch@latest
 ```
 
+### Option 3: Nix Flakes / Home Manager / NixOS
+
+Run ad-hoc:
+```bash
+nix run github:codemedic/dmesg-watch
+```
+
+Or enable declarative user/system services using `homeManagerModules.default` or `nixosModules.default`. See the [User Guide](docs/user-guide.md#%EF%B8%8F-nix--nixos) for complete configuration examples.
+
 ---
 
 ## CLI Options
