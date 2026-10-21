@@ -5,6 +5,26 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.7] - 2026-10-21
+
+Adds complete declarative Nix and NixOS support for Home Manager, NixOS system configuration, and ad-hoc Flake runners.
+
+### ✨ Highlights
+* **✨ Pure Home Manager Module**: Added declarative Home Manager module (`homeManagerModules.default`) configuring `~/.config/dmesg-watch/config.yaml` and launching the systemd user service under any Linux desktop.
+* **✨ NixOS System Module**: Added system-wide NixOS module (`nixosModules.default`) providing automatic desktop session integration (`graphical-session.target`) and system-wide default configuration.
+* **✨ Ad-Hoc Flake Runner**: Directly run `dmesg-watch` on any Nix-enabled system via `nix run github:codemedic/dmesg-watch`.
+* **✨ Dynamic Docker Nix Toolchain**: `Makefile` dynamically detects host `nix` or automatically falls back to containerized execution via `nixos/nix:latest` for `make nix-build`, `make nix-check`, and `make nix-fmt`.
+* **YAML Configuration File**: Added native support for `~/.config/dmesg-watch/config.yaml` with flexible array support for `viewer_cmd`, allowing background service users to customize settings without editing systemd unit files.
+* **Dynamic Tray Log Label**: Fixed tray menu to dynamically reflect the active streaming backend (`View Kernel Logs (dmesg)` vs `View Kernel Logs (journalctl)`).
+* **Swappable Streaming Backends**: Added `-backend` flag (`auto`, `journalctl`, `dmesg`) to stream directly via `dmesg -W` on non-systemd or embedded systems with automatic viewer command synchronization.
+* **Dedicated User Guide**: Created `docs/user-guide.md` providing high-signal, plain-English guidance on icon states, configuration, permissions, and service management.
+
+### 🛠️ Technical Notes
+* ✨ Implemented `nix/package.nix` with static `CGO_ENABLED=0` build and `makeWrapper` for runtime binary wrapping (`systemd`, `util-linux`, `xdg-utils`).
+* ✨ Implemented `nix/hm-module.nix` and `nix/nixos-module.nix` with typed option definitions and YAML serialization.
+* ✨ Added `docs/nix-docker-guide.md` and updated `AGENTS.md` with targeted validation workflows.
+* ✨ Fixed `go.mod` compiler version requirement to `go 1.23.0`.
+
 ## [v0.3.0-beta.6] - 2026-10-21
 
 Adds YAML configuration file support, swappable streaming backends (-backend), dynamic tray labels, and dedicated user-guide documentation.
