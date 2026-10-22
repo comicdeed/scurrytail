@@ -7,15 +7,29 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/ardanlabs/conf/v3"
+	"github.com/ardanlabs/conf/v3/yaml"
+	goyaml "gopkg.in/yaml.v3"
 )
 
-// StringList supports unmarshaling from either a YAML list of strings or a single command string.
+// StringList supports unmarshaling from either a YAML list of strings or a single command string,
+// and supports parsing from CLI flags / env vars via conf.Setter.
 type StringList []string
 
-// UnmarshalYAML implements custom unmarshaling for StringList.
-func (s *StringList) UnmarshalYAML(value *yaml.Node) error {
-	if value.Kind == yaml.ScalarNode {
+// Set implements conf.Setter for ardanlabs/conf/v3 CLI flags and environment variables.
+func (s *StringList) Set(value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		*s = nil
+		return nil
+	}
+	*s = strings.Fields(trimmed)
+	return nil
+}
+
+// UnmarshalYAML implements custom unmarshaling for YAML.
+func (s *StringList) UnmarshalYAML(value *goyaml.Node) error {
+	if value.Kind == goyaml.ScalarNode {
 		var str string
 		if err := value.Decode(&str); err != nil {
 			return err
@@ -28,7 +42,7 @@ func (s *StringList) UnmarshalYAML(value *yaml.Node) error {
 		*s = strings.Fields(trimmed)
 		return nil
 	}
-	if value.Kind == yaml.SequenceNode {
+	if value.Kind == goyaml.SequenceNode {
 		var list []string
 		if err := value.Decode(&list); err != nil {
 			return err
@@ -41,11 +55,13 @@ func (s *StringList) UnmarshalYAML(value *yaml.Node) error {
 
 // Config represents the application configuration settings.
 type Config struct {
-	Backend   string        `yaml:"backend"`
-	Threshold int           `yaml:"threshold"`
-	Window    time.Duration `yaml:"window"`
-	Cooldown  time.Duration `yaml:"cooldown"`
-	ViewerCmd StringList    `yaml:"viewer_cmd"`
+	conf.Version
+	ConfigFile string        `conf:"flag:config,short:c,env:CONFIG,help:Path to YAML configuration file"`
+	Backend    string        `conf:"default:auto,help:Kernel log streaming backend: auto, journalctl, or dmesg" yaml:"backend"`
+	Threshold  int           `conf:"default:5,help:Number of kernel errors per window to trigger an alert" yaml:"threshold"`
+	Window     time.Duration `conf:"default:1m,help:Rolling evaluation window duration" yaml:"window"`
+	Cooldown   time.Duration `conf:"default:45s,help:Notification suppression cooldown period" yaml:"cooldown"`
+	ViewerCmd  StringList    `conf:"flag:viewer-cmd,help:Command to view kernel logs in terminal" yaml:"viewer_cmd"`
 }
 
 // Default returns a Config populated with standard defaults.
@@ -92,26 +108,56 @@ func FindConfigFile(explicitPath string) string {
 	return ""
 }
 
-// Load loads the configuration from disk, overlaying any provided values on top of Default().
-// If explicitPath is empty and no configuration file is found, it returns Default() without error.
-func Load(explicitPath string) (Config, string, error) {
-	cfg := Default()
-	path := FindConfigFile(explicitPath)
-	if path == "" {
-		return cfg, "", nil
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if explicitPath != "" {
-			return cfg, "", fmt.Errorf("failed to read config file %q: %w", path, err)
+func findExplicitConfigFile(args []string) string {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "-c" || arg == "--config" || arg == "-config" {
+			if i+1 < len(args) {
+				return args[i+1]
+			}
 		}
-		return cfg, "", nil
+		if strings.HasPrefix(arg, "-c=") || strings.HasPrefix(arg, "--config=") || strings.HasPrefix(arg, "-config=") {
+			parts := strings.SplitN(arg, "=", 2)
+			return parts[1]
+		}
+	}
+	return os.Getenv("DMESG_WATCH_CONFIG")
+}
+
+// Load loads application configuration using ardanlabs/conf/v3.
+// Precedence: defaults -> YAML config file -> environment variables -> command line flags.
+func Load(versionStr string, args []string) (Config, string, string, error) {
+	var cfg Config
+	cfg.Version = conf.Version{
+		Build: versionStr,
+		Desc:  "Lightweight Linux kernel error monitor",
 	}
 
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return cfg, path, fmt.Errorf("failed to parse config file %q: %w", path, err)
+	explicitPath := findExplicitConfigFile(args)
+	configPath := FindConfigFile(explicitPath)
+
+	var parsers []conf.Parsers
+	if configPath != "" {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			if explicitPath != "" {
+				return cfg, "", "", fmt.Errorf("reading config file %q: %w", configPath, err)
+			}
+		} else {
+			parsers = append(parsers, yaml.WithData(data))
+		}
 	}
 
-	return cfg, path, nil
+	origArgs := os.Args
+	if args != nil {
+		os.Args = append([]string{origArgs[0]}, args...)
+		defer func() { os.Args = origArgs }()
+	}
+
+	help, err := conf.Parse("DMESG_WATCH", &cfg, parsers...)
+	if err != nil {
+		return cfg, configPath, help, err
+	}
+
+	return cfg, configPath, "", nil
 }

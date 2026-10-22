@@ -1,18 +1,18 @@
 { lib
-, buildGoModule
+, buildGo127Module
 , makeWrapper
 , systemd
 , util-linux
 , xdg-utils
 }:
 
-buildGoModule {
+buildGo127Module {
   pname = "dmesg-watch";
   version = "0.3.0";
 
   src = lib.cleanSource ./..;
 
-  vendorHash = "sha256-l1gTwnm/lksn/UnLp7iRELFmjpIche3IOjIzYCw+6T0=";
+  vendorHash = "sha256-Xk0jyJsjtVCKsY4kJ5piLdcJ4a8+ZkyM7jTrnjGZnYA=";
 
   env.CGO_ENABLED = 0;
 

@@ -5,9 +5,10 @@ go 1.27.2
 require (
 	fyne.io/systray v1.12.2
 	github.com/godbus/dbus/v5 v5.1.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	github.com/ardanlabs/conf/v3 v3.13.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

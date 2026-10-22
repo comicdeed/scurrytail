@@ -21,8 +21,8 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 
 - **`cmd/`**: Entrypoint binaries.
   - `cmd/dmesg-watch/main.go` parses CLI flags, manages the root context lifecycle (`SIGINT`/`SIGTERM`), and wires domain packages together. Keep `main` focused on orchestration.
-- **`internal/config`**: YAML and environment configuration.
-  - Resolves XDG and system config paths (`~/.config/dmesg-watch/config.yaml`, `/etc/dmesg-watch/config.yaml`), unmarshals scalar/array options, and merges CLI flag overrides.
+- **`internal/config`**: Declarative configuration and env var parsing.
+  - Powered by `github.com/ardanlabs/conf/v3` with YAML file overlay (`yaml.WithData`). Resolves XDG/system paths, unmarshals scalar/array options, and binds CLI flags and `DMESG_WATCH_*` environment variables.
 - **`internal/journal`**: Kernel log streaming.
   - Manages swappable kernel error streaming backends (`journalctl -k -f -n 0 -p 3` and `dmesg -w -l err,crit,alert,emerg`), backend auto-detection, and syslog/uptime/ISO timestamp normalization.
 - **`internal/launcher`**: Process execution and terminal detection.
@@ -66,10 +66,21 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 - **Single Source of Truth**: `go.mod` is the single authority for the project's minimum and active Go version.
 - **Automated Workflow Alignment**: Never hardcode static `go-version` strings in GitHub Actions. Always configure `actions/setup-go@v5` with `go-version-file: 'go.mod'` across all `.github/workflows/*.yml` files.
 - **Docker Fallback Synchronization**: The `Makefile` dynamically dispatches through `$(GOLANG_IMAGE)` (defaulting to `golang:alpine`) when native `go` is missing from the host. When bumping `go.mod`, ensure the toolchain image satisfies the declared version.
+- **Nixpkgs Toolchain Alignment**: When `go.mod` specifies a Go version (e.g., `go 1.27.2`), `nixpkgs` default `pkgs.go` and `pkgs.buildGoModule` may lag behind on an older stable release (e.g., `go 1.26.9`). To prevent build failures:
+  - In `nix/package.nix`, select the explicit versioned builder (e.g., `buildGo127Module`) or override `buildGoModule.override { go = pkgs.go_1_27; }`.
+  - In `flake.nix`, ensure `devShells` includes the matching versioned package (e.g., `pkgs.go_1_27`).
+
+### ⚙️ Configuration Management & Verification
+- **Unified Declarative Config**: Configuration is managed declaratively using `github.com/ardanlabs/conf/v3` and `yaml.WithData`.
+- **Precedence Hierarchy**: Built-in Struct Defaults $\rightarrow$ YAML Config File $\rightarrow$ Environment Variables $\rightarrow$ Command-Line Flags.
+- **Mandatory `--help` Verification**: Never guess or hardcode derived environment variable names or CLI flag syntax. Always compile the binary and inspect `./bin/dmesg-watch --help` to verify the exact generated environment variables, flags, and default values before updating documentation, unit tests, or systemd services.
 
 ### Nix Development & Docker Fallback
 - The `Makefile` dynamically detects if native `nix` is installed on the host. If missing, it transparently executes through the `nixos/nix:latest` container.
 - For complete operational details and instructions on updating `vendorHash` when Go dependencies change, consult the [Nix Development Guide](docs/nix-docker-guide.md).
+- **Dependency `vendorHash` Protocol**: Because Nix enforces hermetic, offline builds, dependencies are downloaded in an isolated Fixed-Output Derivation (FOD) verified by `vendorHash`.
+  - Any addition, update, or removal of Go dependencies in `go.mod`/`go.sum` alters the module tree and invalidates `vendorHash`.
+  - To refresh: set `vendorHash = lib.fakeHash;` in `nix/package.nix`, run `make nix-build` to capture the calculated hash (`got: sha256-...`), and replace it before running tests or tagging releases.
 
 ### Local CI Testing
 - Run `act pull_request` to execute the full GitHub Actions pipeline locally inside Docker before pushing changes.

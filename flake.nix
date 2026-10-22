@@ -37,7 +37,7 @@
         {
           default = pkgs.mkShell {
             packages = with pkgs; [
-              go
+              go_1_27
               systemd
               util-linux
               xdg-utils

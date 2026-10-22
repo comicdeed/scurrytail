@@ -1,11 +1,14 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/ardanlabs/conf/v3"
 )
 
 func TestDefault(t *testing.T) {
@@ -27,6 +30,19 @@ func TestDefault(t *testing.T) {
 	}
 }
 
+func TestLoad_Defaults(t *testing.T) {
+	cfg, path, _, err := Load("v0.1.0", []string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if path != "" {
+		t.Errorf("expected empty path, got %s", path)
+	}
+	if cfg.Backend != "auto" || cfg.Threshold != 5 || cfg.Window != time.Minute || cfg.Cooldown != 45*time.Second {
+		t.Errorf("unexpected default config values: %+v", cfg)
+	}
+}
+
 func TestLoad_ArrayViewerCmd(t *testing.T) {
 	yamlContent := `
 backend: dmesg
@@ -45,7 +61,7 @@ viewer_cmd:
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
-	cfg, path, err := Load(confPath)
+	cfg, path, _, err := Load("v0.1.0", []string{"--config", confPath})
 	if err != nil {
 		t.Fatalf("unexpected load error: %v", err)
 	}
@@ -80,7 +96,7 @@ viewer_cmd: "journalctl -k -f"
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
-	cfg, _, err := Load(confPath)
+	cfg, _, _, err := Load("v0.1.0", []string{"-c", confPath})
 	if err != nil {
 		t.Fatalf("unexpected load error: %v", err)
 	}
@@ -90,8 +106,74 @@ viewer_cmd: "journalctl -k -f"
 	}
 }
 
+func TestLoad_EnvVarOverride(t *testing.T) {
+	t.Setenv("DMESG_WATCH_BACKEND", "dmesg")
+	t.Setenv("DMESG_WATCH_THRESHOLD", "15")
+	t.Setenv("DMESG_WATCH_COOLDOWN", "10s")
+
+	cfg, _, _, err := Load("v0.1.0", []string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Backend != "dmesg" {
+		t.Errorf("expected backend dmesg from env, got %s", cfg.Backend)
+	}
+	if cfg.Threshold != 15 {
+		t.Errorf("expected threshold 15 from env, got %d", cfg.Threshold)
+	}
+	if cfg.Cooldown != 10*time.Second {
+		t.Errorf("expected cooldown 10s from env, got %v", cfg.Cooldown)
+	}
+}
+
+func TestLoad_FlagOverridesEnvAndYaml(t *testing.T) {
+	yamlContent := `
+threshold: 10
+backend: journalctl
+`
+	tmpDir := t.TempDir()
+	confPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(confPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	t.Setenv("DMESG_WATCH_THRESHOLD", "20")
+
+	// Flag should win over both YAML (10) and Env (20)
+	cfg, _, _, err := Load("v0.1.0", []string{"-c", confPath, "--threshold=30", "--backend=dmesg"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Threshold != 30 {
+		t.Errorf("expected threshold 30 from flag, got %d", cfg.Threshold)
+	}
+	if cfg.Backend != "dmesg" {
+		t.Errorf("expected backend dmesg from flag, got %s", cfg.Backend)
+	}
+}
+
+func TestLoad_HelpWanted(t *testing.T) {
+	_, _, help, err := Load("v0.1.0", []string{"--help"})
+	if !errors.Is(err, conf.ErrHelpWanted) {
+		t.Fatalf("expected ErrHelpWanted, got: %v", err)
+	}
+	if help == "" {
+		t.Errorf("expected non-empty help string")
+	}
+}
+
+func TestLoad_VersionWanted(t *testing.T) {
+	_, _, version, err := Load("v0.1.0", []string{"--version"})
+	if !errors.Is(err, conf.ErrVersionWanted) {
+		t.Fatalf("expected ErrVersionWanted, got: %v", err)
+	}
+	if version == "" {
+		t.Errorf("expected non-empty version string")
+	}
+}
+
 func TestLoad_ExplicitMissing(t *testing.T) {
-	_, _, err := Load("/non/existent/config.yaml")
+	_, _, _, err := Load("v0.1.0", []string{"--config", "/non/existent/config.yaml"})
 	if err == nil {
 		t.Errorf("expected error for missing explicit file, got nil")
 	}

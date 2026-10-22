@@ -79,23 +79,24 @@ viewer_cmd: ["ghostty", "-e", "journalctl", "-k", "-f", "-n", "50"]
 ```
 
 Configuration values are loaded in order:
-$$\text{Built-in Defaults} \longrightarrow \text{Config File} \longrightarrow \text{Command Line Flags}$$
+$$\text{Built-in Defaults} \longrightarrow \text{Config File} \longrightarrow \text{Environment Variables} \longrightarrow \text{Command Line Flags}$$
 
 ---
 
-## 💻 Command-Line Flags
+## 💻 Command-Line Flags & Environment Variables
 
-CLI flags override settings in your `config.yaml` for ad-hoc debugging:
+All settings can be configured via YAML configuration file, environment variables, or CLI flags:
 
-| Flag | Default | Description |
-| :--- | :--- | :--- |
-| `-config` | *(auto)* | Path to custom YAML configuration file. |
-| `-backend` | `auto` | Kernel streaming source: `auto`, `journalctl`, or `dmesg`. |
-| `-threshold` | `5` | Number of errors within the window required to trigger a notification. |
-| `-window` | `60s` | Rolling evaluation window duration (`30s`, `1m`, `2m`). |
-| `-cooldown` | `45s` | Minimum wait time between desktop notifications during sustained errors. |
-| `-viewer-cmd` | *(auto)* | Custom command to run when clicking "View Kernel Logs". |
-| `-version` | `false` | Prints the application version and exits. |
+| Flag | Environment Variable | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `-c`, `--config` | `DMESG_WATCH_CONFIG` | *(auto)* | Path to custom YAML configuration file. |
+| `--backend` | `DMESG_WATCH_BACKEND` | `auto` | Kernel streaming backend: `auto`, `journalctl`, or `dmesg`. |
+| `--threshold` | `DMESG_WATCH_THRESHOLD` | `5` | Number of errors within the window required to trigger a notification. |
+| `--window` | `DMESG_WATCH_WINDOW` | `1m` | Rolling evaluation window duration (`30s`, `1m`, `2m`). |
+| `--cooldown` | `DMESG_WATCH_COOLDOWN` | `45s` | Minimum wait time between desktop notifications during sustained errors. |
+| `--viewer-cmd` | `DMESG_WATCH_VIEWER_CMD` | *(auto)* | Custom command to run when clicking "View Kernel Logs". |
+| `-h`, `--help` | — | — | Displays the help message with options and environment variables. |
+| `-v`, `--version` | — | — | Prints the application version and exits. |
 
 ### Examples
 
