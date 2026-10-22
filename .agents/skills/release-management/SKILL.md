@@ -132,8 +132,8 @@ git push origin main --tags
 - [ ] **Convention 1 Labels**: Verify assets match standard labels:
   - `.deb` (amd64) $\rightarrow$ `Debian / Ubuntu (x86_64)`
   - `.deb` (arm64) $\rightarrow$ `Debian / Ubuntu (aarch64 / ARM64)`
-  - `.rpm` (amd64) $\rightarrow$ `Fedora / RHEL / openSUSE (x86_64)`
-  - `.rpm` (arm64) $\rightarrow$ `Fedora / RHEL / openSUSE (aarch64 / ARM64)`
+  - `.rpm` (x86_64) $\rightarrow$ `Fedora / RHEL / openSUSE (x86_64)`
+  - `.rpm` (aarch64) $\rightarrow$ `Fedora / RHEL / openSUSE (aarch64 / ARM64)`
   - `.tar.gz` (amd64) $\rightarrow$ `Standalone Archive (x86_64)`
   - `.tar.gz` (arm64) $\rightarrow$ `Standalone Archive (aarch64 / ARM64)`
   - `checksums.txt` $\rightarrow$ `SHA256 Checksums`

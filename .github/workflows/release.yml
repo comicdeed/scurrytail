@@ -124,8 +124,6 @@ jobs:
               "arm64.deb": "Debian / Ubuntu (aarch64 / ARM64)",
               "x86_64.rpm": "Fedora / RHEL / openSUSE (x86_64)",
               "aarch64.rpm": "Fedora / RHEL / openSUSE (aarch64 / ARM64)",
-              "amd64.rpm": "Fedora / RHEL / openSUSE (x86_64)",
-              "arm64.rpm": "Fedora / RHEL / openSUSE (aarch64 / ARM64)",
               "amd64.tar.gz": "Standalone Archive (x86_64)",
               "arm64.tar.gz": "Standalone Archive (aarch64 / ARM64)",
           }
