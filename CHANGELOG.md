@@ -5,6 +5,23 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.9] - 2026-10-22
+
+Adopts distro-native conventional package naming for deb and rpm packages and tightens developer workflow rules.
+
+### ✨ Highlights
+* **✨ Conventional Distro Package Naming**: Adopted GoReleaser/NFPM conventional naming for Linux packages, removing redundant `linux` substrings and adhering strictly to Debian (`_amd64.deb`, `_arm64.deb`) and RedHat/RPM (`-1.x86_64.rpm`, `-1.aarch64.rpm`) conventions.
+* **✨ Clean Standalone Archive Names**: Streamlined standalone tarball naming to `dmesg-watch-<version>-<arch>.tar.gz`.
+* **Declarative Configuration (`conf/v3`)**: Full declarative configuration parsing across CLI flags, environment variables (`DMESG_WATCH_*`), YAML files (`~/.config/dmesg-watch/config.yaml`), and built-in defaults with automatic `--help` generation.
+* **Full Environment Variable Support**: All configuration options (`DMESG_WATCH_BACKEND`, `DMESG_WATCH_CONFIG`, `DMESG_WATCH_THRESHOLD`, `DMESG_WATCH_WINDOW`, `DMESG_WATCH_COOLDOWN`, `DMESG_WATCH_VIEWER_CMD`) can be passed via environment variables.
+* **Pure Home Manager Module**: Declarative Home Manager module (`homeManagerModules.default`) configuring `~/.config/dmesg-watch/config.yaml` and launching the systemd user service under any Linux desktop.
+* **NixOS System Module**: System-wide NixOS module (`nixosModules.default`) providing automatic desktop session integration (`graphical-session.target`).
+
+### 🛠️ Technical Notes
+* ✨ Configured `conventional_file_name: true` in `.goreleaser.yaml` and aligned `Makefile`'s `dist` target.
+* ✨ Updated GitHub release asset labeling in `release.yml` to support `x86_64.rpm` and `aarch64.rpm`.
+* ✨ Tightened workflow linting rules and strictly codified Nix boundary isolation in `AGENTS.md`.
+
 ## [v0.3.0-beta.8] - 2026-10-22
 
 Unified declarative configuration powered by ardanlabs/conf/v3 with full environment variable support and Go 1.27 toolchain alignment.

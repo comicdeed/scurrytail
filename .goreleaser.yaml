@@ -22,7 +22,7 @@ builds:
 
 archives:
   - format: tar.gz
-    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Arch }}"
     files:
       - README.md
       - systemd/dmesg-watch.service
@@ -32,6 +32,7 @@ archives:
 nfpms:
   - id: packages
     package_name: dmesg-watch
+    conventional_file_name: true
     vendor: comicdeed
     homepage: https://github.com/comicdeed/dmesg-watch
     maintainer: comicdeed

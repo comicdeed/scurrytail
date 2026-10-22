@@ -66,15 +66,15 @@ service-status:
 	systemctl --user status $(APP_NAME).service
 
 dist: build
-	@mkdir -p dist/$(APP_NAME)-$(VERSION)-linux-amd64
-	cp bin/$(APP_NAME) dist/$(APP_NAME)-$(VERSION)-linux-amd64/
-	cp systemd/$(APP_NAME).service dist/$(APP_NAME)-$(VERSION)-linux-amd64/
-	cp systemd/50-$(APP_NAME).preset dist/$(APP_NAME)-$(VERSION)-linux-amd64/
-	cp scripts/install.sh dist/$(APP_NAME)-$(VERSION)-linux-amd64/
-	cp README.md dist/$(APP_NAME)-$(VERSION)-linux-amd64/
-	tar -czf dist/$(APP_NAME)-$(VERSION)-linux-amd64.tar.gz -C dist $(APP_NAME)-$(VERSION)-linux-amd64
-	@rm -rf dist/$(APP_NAME)-$(VERSION)-linux-amd64
-	@echo "Created dist/$(APP_NAME)-$(VERSION)-linux-amd64.tar.gz"
+	@mkdir -p dist/$(APP_NAME)-$(VERSION)-amd64
+	cp bin/$(APP_NAME) dist/$(APP_NAME)-$(VERSION)-amd64/
+	cp systemd/$(APP_NAME).service dist/$(APP_NAME)-$(VERSION)-amd64/
+	cp systemd/50-$(APP_NAME).preset dist/$(APP_NAME)-$(VERSION)-amd64/
+	cp scripts/install.sh dist/$(APP_NAME)-$(VERSION)-amd64/
+	cp README.md dist/$(APP_NAME)-$(VERSION)-amd64/
+	tar -czf dist/$(APP_NAME)-$(VERSION)-amd64.tar.gz -C dist $(APP_NAME)-$(VERSION)-amd64
+	@rm -rf dist/$(APP_NAME)-$(VERSION)-amd64
+	@echo "Created dist/$(APP_NAME)-$(VERSION)-amd64.tar.gz"
 
 clean:
 	rm -rf bin/ dist/

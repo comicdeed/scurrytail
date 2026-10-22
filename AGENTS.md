@@ -59,8 +59,9 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 ### Formatting & Linting
 - **Go changes**: Always format modified Go files using `make fmt` (or `gofmt -w -s .`) before running tests.
 - **Nix changes**: Format modified Nix files using `make nix-fmt` only when `.nix` files or `flake.nix` are touched.
-- **Workflow changes**: Verify GitHub Actions workflow syntax using `actionlint .github/workflows/*.yml` only when `.github/workflows` is modified.
-- **Targeted validation**: Do not run Nix checks (`make nix-check`, `make nix-build`) for standard Go code edits; only invoke Nix targets when altering Nix expressions, Flake outputs, or Go module dependencies (`go.mod`).
+- **Workflow changes**: Run `actionlint .github/workflows/*.yml` **only if** `actionlint` is already installed natively on the host. Never spin up Docker containers or pull Nix closures over the network just to run `actionlint`. If uninstalled, perform a direct manual syntax review.
+- **Targeted validation**: Never run Nix checks (`make nix-check`, `make nix-build`) for standard Go code or workflow edits; only invoke Nix targets when altering Nix expressions, Flake outputs, or Go module dependencies (`go.mod`).
+- **Strict Nix Boundary Isolation**: Nix (`nix`, `make nix-*`, `nixos/nix` container) is strictly for Nix packaging and flake maintenance. Never reach for Nix to run generic developer utilities, linters, or formatters (e.g., `nix run nixpkgs#actionlint`). CI workflows and non-Nix code have zero dependency on Nix.
 
 ### 🐹 Go Toolchain & Version Management
 - **Single Source of Truth**: `go.mod` is the single authority for the project's minimum and active Go version.
