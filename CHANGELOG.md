@@ -5,6 +5,26 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.8] - 2026-10-22
+
+Unified declarative configuration powered by ardanlabs/conf/v3 with full environment variable support and Go 1.27 toolchain alignment.
+
+### ✨ Highlights
+* **✨ Declarative Configuration (`conf/v3`)**: Full declarative configuration parsing across CLI flags, environment variables (`DMESG_WATCH_*`), YAML files (`~/.config/dmesg-watch/config.yaml`), and built-in defaults with automatic `--help` generation.
+* **✨ Full Environment Variable Support**: All configuration options (`DMESG_WATCH_BACKEND`, `DMESG_WATCH_CONFIG`, `DMESG_WATCH_THRESHOLD`, `DMESG_WATCH_WINDOW`, `DMESG_WATCH_COOLDOWN`, `DMESG_WATCH_VIEWER_CMD`) can now be passed via environment variables.
+* **✨ Streamlined README**: Redesigned project storefront with screenshot visual anchor and high-signal, benefit-first highlights.
+* **Pure Home Manager Module**: Declarative Home Manager module (`homeManagerModules.default`) configuring `~/.config/dmesg-watch/config.yaml` and launching the systemd user service under any Linux desktop.
+* **NixOS System Module**: System-wide NixOS module (`nixosModules.default`) providing automatic desktop session integration (`graphical-session.target`).
+* **Ad-Hoc Flake Runner**: Directly run `dmesg-watch` on any Nix-enabled system via `nix run github:codemedic/dmesg-watch`.
+* **Dynamic Docker Nix Toolchain**: `Makefile` dynamically detects host `nix` or automatically falls back to containerized execution via `nixos/nix:latest`.
+
+### 🛠️ Technical Notes
+* ✨ Integrated `github.com/ardanlabs/conf/v3` with `yaml.WithData` enforcing strict hierarchy: Struct Defaults $\rightarrow$ YAML Config File $\rightarrow$ Environment Variables $\rightarrow$ CLI Flags.
+* ✨ Implemented custom `conf.Setter` on `StringList` for CLI/env var parsing while maintaining YAML array/scalar backward compatibility.
+* ✨ Switched Nix builder to `buildGo127Module`, refreshed `vendorHash`, and updated `flake.nix` devShells to `go_1_27`.
+* ✨ Automated CI Go toolchain alignment dynamically via `actions/setup-go@v5` with `go-version-file: 'go.mod'`.
+* ✨ Codified mandatory `--help` verification and Nix Go toolchain alignment rules into `AGENTS.md`.
+
 ## [v0.3.0-beta.7] - 2026-10-21
 
 Adds complete declarative Nix and NixOS support for Home Manager, NixOS system configuration, and ad-hoc Flake runners.
