@@ -21,7 +21,8 @@ builds:
       - -s -w -X main.version={{.Version}}
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Arch }}"
     files:
       - README.md
@@ -32,7 +33,7 @@ archives:
 nfpms:
   - id: packages
     package_name: dmesg-watch
-    conventional_file_name: true
+    file_name_template: "{{ .ConventionalFileName }}"
     vendor: comicdeed
     homepage: https://github.com/comicdeed/dmesg-watch
     maintainer: comicdeed
