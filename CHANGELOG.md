@@ -5,6 +5,23 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.10] - 2026-10-26
+
+Tray icon is hidden by default on clean systems, appearing on faults and requesting desktop attention when error thresholds are crossed.
+
+### ✨ Highlights
+* **✨ Quiet Background Presence**: Tray icon remains hidden by default when 0 errors are recorded (`Passive` StatusNotifierItem status), leaving the desktop panel clean and distraction-free.
+* **✨ Fault-Driven Dynamic Appearance**: Tray icon emerges into view (`Active` status) with an amber warning icon when kernel errors occur within the rolling window.
+* **✨ Desktop Attention on Threshold Breaches**: Requests desktop environment attention (`NeedsAttention` status) when kernel error counts reach or exceed the configured alert threshold.
+* **Conventional Distro Package Naming**: Adopted GoReleaser/NFPM conventional naming for Linux packages, removing redundant `linux` substrings and adhering strictly to Debian (`_amd64.deb`, `_arm64.deb`) and RedHat/RPM (`-1.x86_64.rpm`, `-1.aarch64.rpm`) conventions.
+* **Declarative Configuration (`conf/v3`)**: Full declarative configuration parsing across CLI flags, environment variables (`DMESG_WATCH_*`), YAML files (`~/.config/dmesg-watch/config.yaml`), and built-in defaults with automatic `--help` generation.
+
+### 🛠️ Technical Notes
+* ✨ Switched `fyne.io/systray` dependency to `github.com/codemedic/fyne-io-systray` fork implementing `Show()`, `Hide()`, and `RequestAttention()` methods.
+* ✨ Synchronized desktop attention requests with burst notification dispatches in `cmd/dmesg-watch/main.go`.
+* ✨ Updated Nix package `vendorHash` in `nix/package.nix` for the replaced dependency closure.
+* ✨ Pruned legacy RPM asset label matchers in release workflow.
+
 ## [v0.3.0-beta.9] - 2026-10-22
 
 Adopts distro-native conventional package naming for deb and rpm packages and tightens developer workflow rules.
