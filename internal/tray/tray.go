@@ -14,25 +14,31 @@ var iconNormal []byte
 //go:embed assets/icon_warning.png
 var iconWarning []byte
 
+type status int
+
+const (
+	statusPassive status = iota
+	statusActive
+	statusNeedsAttention
+)
+
 // Tray manages the system tray icon, tooltips, and context menu items.
 type Tray struct {
-	mu             sync.Mutex
-	version        string
-	backend        string
-	threshold      int
-	visible        bool
-	attention      bool
-	isWarningState bool
-	mStats         *systray.MenuItem
-	mLatest        *systray.MenuItem
-	mViewLogs      *systray.MenuItem
-	mAbout         *systray.MenuItem
-	mWebsite       *systray.MenuItem
-	mQuit          *systray.MenuItem
-	onViewLogs     func()
-	onWebsite      func()
-	onQuit         func()
-	readyChan      chan struct{}
+	mu         sync.Mutex
+	version    string
+	backend    string
+	threshold  int
+	status     status
+	mStats     *systray.MenuItem
+	mLatest    *systray.MenuItem
+	mViewLogs  *systray.MenuItem
+	mAbout     *systray.MenuItem
+	mWebsite   *systray.MenuItem
+	mQuit      *systray.MenuItem
+	onViewLogs func()
+	onWebsite  func()
+	onQuit     func()
+	readyChan  chan struct{}
 }
 
 // New initializes a Tray instance with callbacks for log viewing, Website URL opening, and user-triggered exit.
@@ -62,9 +68,7 @@ func (t *Tray) Init() {
 	systray.Hide()
 
 	t.mu.Lock()
-	t.isWarningState = false
-	t.visible = false
-	t.attention = false
+	t.status = statusPassive
 
 	t.mStats = systray.AddMenuItem("Errors (Last 60s): 0", "Count of kernel errors in the rolling window")
 	t.mStats.Disable()
@@ -131,33 +135,63 @@ func (t *Tray) Init() {
 	}()
 }
 
-// Show makes the tray icon visible in the notification area.
+// setStatusLocked handles transitions between SNI statuses and manages icons.
+// Caller must hold t.mu.
+func (t *Tray) setStatusLocked(target status) {
+	if t.status == target {
+		return
+	}
+
+	switch target {
+	case statusPassive:
+		systray.Hide()
+		systray.SetIcon(iconNormal)
+
+	case statusActive:
+		if t.status == statusPassive {
+			systray.SetIcon(iconWarning)
+		}
+		// Calling Show() sets SNI Status to Active and clears NeedsAttention in fyne-io-systray
+		systray.Show()
+
+	case statusNeedsAttention:
+		if t.status == statusPassive {
+			systray.SetIcon(iconWarning)
+			systray.Show()
+		}
+		systray.RequestAttention()
+	}
+
+	t.status = target
+}
+
+// Show makes the tray icon visible in the active warning state.
 func (t *Tray) Show() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	systray.Show()
-	t.visible = true
+	t.setStatusLocked(statusActive)
 }
 
 // Hide hides the tray icon from the notification area.
 func (t *Tray) Hide() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	systray.Hide()
-	t.visible = false
-	t.attention = false
+	t.setStatusLocked(statusPassive)
 }
 
 // RequestAttention asks the user to look at the systray icon (NeedsAttention status).
+// If the icon was hidden, it is displayed in warning state first.
+// Always emits RequestAttention to handle cases where the user cleared attention via click.
 func (t *Tray) RequestAttention() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if !t.visible {
+
+	if t.status == statusPassive {
+		systray.SetIcon(iconWarning)
 		systray.Show()
-		t.visible = true
 	}
 	systray.RequestAttention()
-	t.attention = true
+	t.status = statusNeedsAttention
 }
 
 // Update dynamically refreshes the menu items and controls tray visibility,
@@ -178,37 +212,15 @@ func (t *Tray) Update(count int, latest string) {
 	t.mStats.SetTitle(fmt.Sprintf("Errors (Last 60s): %d", count))
 	t.mLatest.SetTitle(fmt.Sprintf("Latest: %s", truncated))
 
-	// When there are no errors, hide the icon
-	if count == 0 {
-		if t.visible {
-			systray.Hide()
-			t.visible = false
-			t.attention = false
-			t.isWarningState = false
-			systray.SetIcon(iconNormal)
-		}
-		return
-	}
+	switch {
+	case count == 0:
+		t.setStatusLocked(statusPassive)
 
-	// count > 0: show the icon if currently hidden
-	if !t.visible {
-		systray.Show()
-		t.visible = true
-	}
+	case t.threshold > 0 && count >= t.threshold:
+		t.setStatusLocked(statusNeedsAttention)
 
-	if !t.isWarningState {
-		systray.SetIcon(iconWarning)
-		t.isWarningState = true
-	}
-
-	// Request attention when errors go beyond/reach threshold
-	if t.threshold > 0 && count >= t.threshold {
-		if !t.attention {
-			systray.RequestAttention()
-			t.attention = true
-		}
-	} else if t.attention {
-		t.attention = false
+	default:
+		t.setStatusLocked(statusActive)
 	}
 }
 
