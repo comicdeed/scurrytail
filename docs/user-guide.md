@@ -16,7 +16,7 @@
 
 The icon automatically disappears once the rolling window clears with no new errors.
 
-### State Transition Diagram
+### How the Icon Behaves
 
 ```mermaid
 stateDiagram-v2
