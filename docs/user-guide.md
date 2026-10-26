@@ -4,16 +4,17 @@
 
 ---
 
-## 🖥️ System Tray Icons
+## 🖥️ System Tray States
 
-The tray icon reflects the health of your kernel over the last 60 seconds:
+`dmesg-watch` stays invisible until something needs your attention:
 
-| Icon | State | Meaning |
-| :---: | :--- | :--- |
-| 🖥️ | **Calm (Normal)** | No kernel errors detected in the current rolling window. |
-| ⚠️ | **Alert (Warning)** | One or more kernel errors occurred within the rolling window. |
+| State | Status | Meaning |
+| :--- | :--- | :--- |
+| **Hidden (Default)** | Passive | 0 kernel errors in the rolling window. The icon remains hidden from your panel. |
+| **Visible (Warning)** | Active | One or more kernel errors detected within the rolling window. Icon appears in amber. |
+| **Attention** | NeedsAttention | Error count reaches or exceeds threshold. The desktop environment highlights or blinks the icon. |
 
-The icon automatically returns to the calm outline once the rolling window clears with no new errors.
+The icon automatically disappears once the rolling window clears with no new errors.
 
 ---
 

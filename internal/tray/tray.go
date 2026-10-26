@@ -19,6 +19,9 @@ type Tray struct {
 	mu             sync.Mutex
 	version        string
 	backend        string
+	threshold      int
+	visible        bool
+	attention      bool
 	isWarningState bool
 	mStats         *systray.MenuItem
 	mLatest        *systray.MenuItem
@@ -33,10 +36,11 @@ type Tray struct {
 }
 
 // New initializes a Tray instance with callbacks for log viewing, Website URL opening, and user-triggered exit.
-func New(version string, backend string, onViewLogs func(), onWebsite func(), onQuit func()) *Tray {
+func New(version string, backend string, threshold int, onViewLogs func(), onWebsite func(), onQuit func()) *Tray {
 	return &Tray{
 		version:    version,
 		backend:    backend,
+		threshold:  threshold,
 		onViewLogs: onViewLogs,
 		onWebsite:  onWebsite,
 		onQuit:     onQuit,
@@ -55,9 +59,12 @@ func (t *Tray) Init() {
 	systray.SetIcon(iconNormal)
 	systray.SetTitle("dmesg watch")
 	systray.SetTooltip("dmesg watch\nMonitors kernel error logs in real time")
+	systray.Hide()
 
 	t.mu.Lock()
 	t.isWarningState = false
+	t.visible = false
+	t.attention = false
 
 	t.mStats = systray.AddMenuItem("Errors (Last 60s): 0", "Count of kernel errors in the rolling window")
 	t.mStats.Disable()
@@ -124,8 +131,37 @@ func (t *Tray) Init() {
 	}()
 }
 
-// Update dynamically refreshes the menu items and switches the tray icon
-// between the calm normal icon (0 errors) and the amber warning icon (> 0 errors).
+// Show makes the tray icon visible in the notification area.
+func (t *Tray) Show() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	systray.Show()
+	t.visible = true
+}
+
+// Hide hides the tray icon from the notification area.
+func (t *Tray) Hide() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	systray.Hide()
+	t.visible = false
+	t.attention = false
+}
+
+// RequestAttention asks the user to look at the systray icon (NeedsAttention status).
+func (t *Tray) RequestAttention() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.visible {
+		systray.Show()
+		t.visible = true
+	}
+	systray.RequestAttention()
+	t.attention = true
+}
+
+// Update dynamically refreshes the menu items and controls tray visibility,
+// warning icons, and attention status based on error count and threshold.
 func (t *Tray) Update(count int, latest string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -142,15 +178,37 @@ func (t *Tray) Update(count int, latest string) {
 	t.mStats.SetTitle(fmt.Sprintf("Errors (Last 60s): %d", count))
 	t.mLatest.SetTitle(fmt.Sprintf("Latest: %s", truncated))
 
-	// Dynamic icon switching: switch to warning when errors occur, back to calm when clear
-	shouldWarn := count > 0
-	if shouldWarn != t.isWarningState {
-		t.isWarningState = shouldWarn
-		if shouldWarn {
-			systray.SetIcon(iconWarning)
-		} else {
+	// When there are no errors, hide the icon
+	if count == 0 {
+		if t.visible {
+			systray.Hide()
+			t.visible = false
+			t.attention = false
+			t.isWarningState = false
 			systray.SetIcon(iconNormal)
 		}
+		return
+	}
+
+	// count > 0: show the icon if currently hidden
+	if !t.visible {
+		systray.Show()
+		t.visible = true
+	}
+
+	if !t.isWarningState {
+		systray.SetIcon(iconWarning)
+		t.isWarningState = true
+	}
+
+	// Request attention when errors go beyond/reach threshold
+	if t.threshold > 0 && count >= t.threshold {
+		if !t.attention {
+			systray.RequestAttention()
+			t.attention = true
+		}
+	} else if t.attention {
+		t.attention = false
 	}
 }
 

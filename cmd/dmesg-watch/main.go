@@ -79,6 +79,7 @@ func main() {
 	uiTray = tray.New(
 		version,
 		selectedBackend,
+		cfg.Threshold,
 		func() {
 			if err := launcher.LaunchArgs(activeViewerArgs); err != nil {
 				log.Printf("Failed to open kernel log viewer: %v", err)
@@ -129,6 +130,7 @@ func main() {
 				uiTray.Update(count, latest)
 
 				if shouldAlert {
+					uiTray.RequestAttention()
 					summary := "⚠️ High Kernel Error Rate"
 					body := fmt.Sprintf("Detected %d kernel errors in the last %s!\nLatest: %s",
 						count, cfg.Window.String(), latest)
