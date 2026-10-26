@@ -16,9 +16,7 @@
 
 The icon automatically disappears once the rolling window clears with no new errors.
 
-### State Transition Diagrams
-
-#### 1. UML State Machine (`stateDiagram-v2`)
+### State Transition Diagram
 
 ```mermaid
 stateDiagram-v2
@@ -49,68 +47,6 @@ stateDiagram-v2
 
     Active --> Passive : Rolling window clears (count == 0)
     NeedsAttention --> Passive : Rolling window clears (count == 0)
-```
-
-#### 2. 3-Lane Flowchart (`flowchart TD`)
-
-```mermaid
-flowchart TD
-    subgraph Lane1 ["Lane 1: Hidden (Passive)"]
-        direction TB
-        H_Init(["Daemon Start<br/>(0 errors)"])
-        H_State["<b>UI: Invisible</b><br/>• Tray: Completely hidden from panel<br/>• Alerts: Silent<br/>• Clicks: None (dormant)"]
-    end
-
-    subgraph Lane2 ["Lane 2: Warning (Active)"]
-        direction TB
-        W_State["<b>UI: Amber Warning Icon</b><br/>• Tray: Icon emerges into panel<br/>• Tooltip: Error count &amp; rolling window<br/>• Menu: Clickable diagnostics &amp; log viewer"]
-    end
-
-    subgraph Lane3 ["Lane 3: Attention (NeedsAttention)"]
-        direction TB
-        A_State["<b>UI: Highlighted / Pulsing</b><br/>• Tray: Desktop panel highlights/flashes icon<br/>• Alerts: Desktop notification dispatched<br/>• Clicks: Acknowledges &amp; clears attention"]
-    end
-
-    H_Init --> H_State
-
-    H_State -- "Error detected<br/>(1 ≤ count &lt; threshold)" --> W_State
-    H_State -- "Sudden burst<br/>(count ≥ threshold)" --> A_State
-
-    W_State -- "Rate reaches threshold<br/>(count ≥ threshold)" --> A_State
-
-    A_State -- "User clicks icon / opens menu<br/>(attention acknowledged)" --> W_State
-    A_State -- "Error rate subsides<br/>(count &lt; threshold)" --> W_State
-
-    W_State -- "Window clears with no errors<br/>(count = 0)" --> H_State
-    A_State -- "Window clears with no errors<br/>(count = 0)" --> H_State
-```
-
-#### 3. Sequence Lifelines (`sequenceDiagram`)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant K as Kernel / Journal Stream
-    participant W as dmesg-watch Daemon
-    participant D as Desktop Panel & Notifications
-
-    Note over W,D: State: Hidden (Passive) — Panel icon is invisible
-
-    K->>W: Kernel error arrives (1 ≤ count < threshold)
-    W->>D: SetStatus("Active") + SetIcon(Amber)
-    Note over W,D: State: Warning (Active) — Amber icon appears, menu active
-
-    K->>W: Burst crosses threshold (count ≥ threshold)
-    W->>D: SetStatus("NeedsAttention") + Notify(Desktop Alert)
-    Note over W,D: State: Attention — Panel pulses/flashes + popup shown
-
-    D->>W: User clicks icon or opens menu
-    W->>D: Acknowledge — SetStatus("Active")
-    Note over W,D: Attention cleared back to Warning (Active)
-
-    Note over W: Rolling window elapses with no errors (count == 0)
-    W->>D: SetStatus("Passive")
-    Note over W,D: Icon hidden back to Hidden (Passive)
 ```
 
 ---
