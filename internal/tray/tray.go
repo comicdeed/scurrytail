@@ -93,9 +93,6 @@ func (t *Tray) Init() {
 	mVersion := t.mAbout.AddSubMenuItem(fmt.Sprintf("ScurryTail %s", t.version), "Application version")
 	mVersion.Disable()
 
-	mDesc := t.mAbout.AddSubMenuItem("A nimble Linux system tray applet for tailing fast-moving kernel logs", "Application summary")
-	mDesc.Disable()
-
 	t.mAbout.AddSeparator()
 
 	t.mWebsite = t.mAbout.AddSubMenuItem("Website", "Open project repository in default browser")
