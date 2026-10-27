@@ -63,8 +63,8 @@ func (t *Tray) Ready() <-chan struct{} {
 // This must be called inside the systray.Run onReady callback.
 func (t *Tray) Init() {
 	systray.SetIcon(iconNormal)
-	systray.SetTitle("dmesg watch")
-	systray.SetTooltip("dmesg watch\nMonitors kernel error logs in real time")
+	systray.SetTitle("ScurryTail")
+	systray.SetTooltip("ScurryTail\nNimble kernel log watcher & error monitor")
 	systray.Hide()
 
 	t.mu.Lock()
@@ -90,10 +90,10 @@ func (t *Tray) Init() {
 	systray.AddSeparator()
 
 	t.mAbout = systray.AddMenuItem("About", "Show version and project information")
-	mVersion := t.mAbout.AddSubMenuItem(fmt.Sprintf("dmesg-watch %s", t.version), "Application version")
+	mVersion := t.mAbout.AddSubMenuItem(fmt.Sprintf("ScurryTail %s", t.version), "Application version")
 	mVersion.Disable()
 
-	mDesc := t.mAbout.AddSubMenuItem("Real-time kernel error monitor", "Application summary")
+	mDesc := t.mAbout.AddSubMenuItem("A nimble Linux system tray applet for tailing fast-moving kernel logs", "Application summary")
 	mDesc.Disable()
 
 	t.mAbout.AddSeparator()

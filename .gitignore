@@ -2,6 +2,7 @@
 bin/
 dist/
 /dmesg-watch
+/scurrytail
 *.exe
 *.exe~
 *.dll

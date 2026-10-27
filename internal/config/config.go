@@ -81,7 +81,8 @@ func FindConfigFile(explicitPath string) string {
 		return explicitPath
 	}
 
-	// 1. User config: $XDG_CONFIG_HOME/dmesg-watch/config.yaml or ~/.config/dmesg-watch/config.yaml
+	// 1. User config: $XDG_CONFIG_HOME/scurrytail/config.yaml or ~/.config/scurrytail/config.yaml
+	// (with fallback to legacy ~/.config/dmesg-watch/config.yaml)
 	xdgHome := os.Getenv("XDG_CONFIG_HOME")
 	if xdgHome == "" {
 		if home, err := os.UserHomeDir(); err == nil {
@@ -90,16 +91,21 @@ func FindConfigFile(explicitPath string) string {
 	}
 
 	if xdgHome != "" {
-		for _, name := range []string{"config.yaml", "config.yml"} {
-			p := filepath.Join(xdgHome, "dmesg-watch", name)
-			if _, err := os.Stat(p); err == nil {
-				return p
+		for _, dir := range []string{"scurrytail", "dmesg-watch"} {
+			for _, name := range []string{"config.yaml", "config.yml"} {
+				p := filepath.Join(xdgHome, dir, name)
+				if _, err := os.Stat(p); err == nil {
+					return p
+				}
 			}
 		}
 	}
 
-	// 2. System-wide config: /etc/dmesg-watch/config.yaml
-	for _, sysPath := range []string{"/etc/dmesg-watch/config.yaml", "/etc/dmesg-watch/config.yml"} {
+	// 2. System-wide config: /etc/scurrytail/config.yaml (or legacy /etc/dmesg-watch/config.yaml)
+	for _, sysPath := range []string{
+		"/etc/scurrytail/config.yaml", "/etc/scurrytail/config.yml",
+		"/etc/dmesg-watch/config.yaml", "/etc/dmesg-watch/config.yml",
+	} {
 		if _, err := os.Stat(sysPath); err == nil {
 			return sysPath
 		}
@@ -121,6 +127,9 @@ func findExplicitConfigFile(args []string) string {
 			return parts[1]
 		}
 	}
+	if v := os.Getenv("SCURRYTAIL_CONFIG"); v != "" {
+		return v
+	}
 	return os.Getenv("DMESG_WATCH_CONFIG")
 }
 
@@ -130,7 +139,7 @@ func Load(versionStr string, args []string) (Config, string, string, error) {
 	var cfg Config
 	cfg.Version = conf.Version{
 		Build: versionStr,
-		Desc:  "Lightweight Linux kernel error monitor",
+		Desc:  "A nimble Linux system tray applet for tailing fast-moving kernel logs and catching errors in real time",
 	}
 
 	explicitPath := findExplicitConfigFile(args)
@@ -154,7 +163,7 @@ func Load(versionStr string, args []string) (Config, string, string, error) {
 		defer func() { os.Args = origArgs }()
 	}
 
-	help, err := conf.Parse("DMESG_WATCH", &cfg, parsers...)
+	help, err := conf.Parse("SCURRYTAIL", &cfg, parsers...)
 	if err != nil {
 		return cfg, configPath, help, err
 	}

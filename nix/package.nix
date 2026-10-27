@@ -7,7 +7,7 @@
 }:
 
 buildGo127Module {
-  pname = "dmesg-watch";
+  pname = "scurrytail";
   version = "0.3.0";
 
   src = lib.cleanSource ./..;
@@ -25,15 +25,15 @@ buildGo127Module {
   nativeBuildInputs = [ makeWrapper ];
 
   postInstall = ''
-    wrapProgram $out/bin/dmesg-watch \
+    wrapProgram $out/bin/scurrytail \
       --prefix PATH : ${lib.makeBinPath [ systemd util-linux xdg-utils ]}
   '';
 
   meta = with lib; {
-    description = "Lightweight Linux kernel error monitor with desktop notifications and tray applet";
-    homepage = "https://github.com/codemedic/dmesg-watch";
+    description = "A nimble Linux system tray applet for tailing fast-moving kernel logs and catching errors in real time";
+    homepage = "https://github.com/comicdeed/scurrytail";
     license = licenses.mit;
-    mainProgram = "dmesg-watch";
+    mainProgram = "scurrytail";
     platforms = platforms.linux;
   };
 }

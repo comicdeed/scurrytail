@@ -107,9 +107,9 @@ viewer_cmd: "journalctl -k -f"
 }
 
 func TestLoad_EnvVarOverride(t *testing.T) {
-	t.Setenv("DMESG_WATCH_BACKEND", "dmesg")
-	t.Setenv("DMESG_WATCH_THRESHOLD", "15")
-	t.Setenv("DMESG_WATCH_COOLDOWN", "10s")
+	t.Setenv("SCURRYTAIL_BACKEND", "dmesg")
+	t.Setenv("SCURRYTAIL_THRESHOLD", "15")
+	t.Setenv("SCURRYTAIL_COOLDOWN", "10s")
 
 	cfg, _, _, err := Load("v0.1.0", []string{})
 	if err != nil {
@@ -137,7 +137,7 @@ backend: journalctl
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
-	t.Setenv("DMESG_WATCH_THRESHOLD", "20")
+	t.Setenv("SCURRYTAIL_THRESHOLD", "20")
 
 	// Flag should win over both YAML (10) and Env (20)
 	cfg, _, _, err := Load("v0.1.0", []string{"-c", confPath, "--threshold=30", "--backend=dmesg"})

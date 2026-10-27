@@ -1,12 +1,12 @@
 # Agent Guidelines
 
-Welcome to **dmesg-watch**. This document defines architectural principles, component responsibilities, and operational mechanics for AI agents working in this codebase.
+Welcome to **ScurryTail**. This document defines architectural principles, component responsibilities, and operational mechanics for AI agents working in this codebase.
 
 ---
 
 ## 🏗️ Core Architecture & Boundaries
 
-`dmesg-watch` is a resource-conscious, continuous Linux background daemon that monitors kernel errors in real time.
+`scurrytail` is a resource-conscious, continuous Linux background daemon that monitors kernel errors in real time.
 
 ### Architectural Rules
 - **Minimal Footprint**: Keep idle memory low (~15MB RSS). Do not introduce heavy graphical toolkits (Qt, GTK, Fyne windows).
@@ -20,9 +20,9 @@ Welcome to **dmesg-watch**. This document defines architectural principles, comp
 Avoid adding Go source files to the root. Organize new functionality into focused packages:
 
 - **`cmd/`**: Entrypoint binaries.
-  - `cmd/dmesg-watch/main.go` parses CLI flags, manages the root context lifecycle (`SIGINT`/`SIGTERM`), and wires domain packages together. Keep `main` focused on orchestration.
+  - `cmd/scurrytail/main.go` parses CLI flags, manages the root context lifecycle (`SIGINT`/`SIGTERM`), and wires domain packages together. Keep `main` focused on orchestration.
 - **`internal/config`**: Declarative configuration and env var parsing.
-  - Powered by `github.com/ardanlabs/conf/v3` with YAML file overlay (`yaml.WithData`). Resolves XDG/system paths, unmarshals scalar/array options, and binds CLI flags and `DMESG_WATCH_*` environment variables.
+  - Powered by `github.com/ardanlabs/conf/v3` with YAML file overlay (`yaml.WithData`). Resolves XDG/system paths, unmarshals scalar/array options, and binds CLI flags and `SCURRYTAIL_*` environment variables.
 - **`internal/journal`**: Kernel log streaming.
   - Manages swappable kernel error streaming backends (`journalctl -k -f -n 0 -p 3` and `dmesg -w -l err,crit,alert,emerg`), backend auto-detection, and syslog/uptime/ISO timestamp normalization.
 - **`internal/launcher`**: Process execution and terminal detection.
@@ -45,7 +45,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 ## 🛠️ Key Developer Mechanics
 
 ### Make Targets
-- **`make build`**: Builds the binary to `bin/dmesg-watch` with embedded Git version tags.
+- **`make build`**: Builds the binary to `bin/scurrytail` with embedded Git version tags.
 - **`make fmt`**: Formats all Go source files using `gofmt` (using host toolchain or auto Docker fallback).
 - **`make test`**: Runs unit tests with race detection (`go test -v -race ./...`).
 - **`make vet`**: Runs Go static analysis (`go vet ./...`).
@@ -74,7 +74,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 ### ⚙️ Configuration Management & Verification
 - **Unified Declarative Config**: Configuration is managed declaratively using `github.com/ardanlabs/conf/v3` and `yaml.WithData`.
 - **Precedence Hierarchy**: Built-in Struct Defaults $\rightarrow$ YAML Config File $\rightarrow$ Environment Variables $\rightarrow$ Command-Line Flags.
-- **Mandatory `--help` Verification**: Never guess or hardcode derived environment variable names or CLI flag syntax. Always compile the binary and inspect `./bin/dmesg-watch --help` to verify the exact generated environment variables, flags, and default values before updating documentation, unit tests, or systemd services.
+- **Mandatory `--help` Verification**: Never guess or hardcode derived environment variable names or CLI flag syntax. Always compile the binary and inspect `./bin/scurrytail --help` to verify the exact generated environment variables, flags, and default values before updating documentation, unit tests, or systemd services.
 
 ### Nix Development & Docker Fallback
 - The `Makefile` dynamically detects if native `nix` is installed on the host. If missing, it transparently executes through the `nixos/nix:latest` container.
@@ -119,7 +119,7 @@ When writing or updating user-facing documentation (`README.md`, `docs/user-guid
 - **Commit Messages**: Use **Conventional Commits** (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`). Never stage or commit changes without explicit user directives.
 - **Release Management**: When preparing any release (Pre-Release or Formal Release), consult the [Release Management Skill](.agents/skills/release-management/SKILL.md) which orchestrates version bumps, changelog notes, validation gates, git mechanics, and post-publish verification.
 - **Fast Tag-Push Releases (Betas, Pre-releases, Daily Builds)**:
-  1. Update `CHANGELOG.md` and version constant in `cmd/dmesg-watch/main.go` on `main`.
+  1. Update `CHANGELOG.md` and version constant in `cmd/scurrytail/main.go` on `main`.
   2. Commit: `git commit -am "chore(release): prepare vX.Y.Z-beta.N"`.
   3. Tag and push: `git tag -a vX.Y.Z-beta.N -m "Release vX.Y.Z-beta.N" && git push origin main --tags`.
   4. GitHub Actions `release.yml` triggers immediately on the tag push (`push: tags: 'v*'`), runs GoReleaser, packages artifacts, applies Convention 1 labels, and prunes older pre-releases.

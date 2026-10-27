@@ -20,5 +20,5 @@ for runtime in /run/user/*; do
     runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
         systemctl --user daemon-reload 2>/dev/null || true
     runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
-        systemctl --user enable --now dmesg-watch.service 2>/dev/null || true
+        systemctl --user enable --now scurrytail.service 2>/dev/null || true
 done

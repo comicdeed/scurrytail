@@ -1,4 +1,4 @@
-APP_NAME := dmesg-watch
+APP_NAME := scurrytail
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "v0.1.0")
 
 # Go Toolchain (native binary with automatic Docker fallback)

@@ -1,5 +1,5 @@
 {
-  description = "Lightweight Linux kernel error monitor daemon";
+  description = "A nimble Linux system tray applet for tailing fast-moving kernel logs and catching errors in real time";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,16 +17,16 @@
           pkgs = pkgsFor system;
         in
         {
-          default = self.packages.${system}.dmesg-watch;
-          dmesg-watch = pkgs.callPackage ./nix/package.nix { };
+          default = self.packages.${system}.scurrytail;
+          scurrytail = pkgs.callPackage ./nix/package.nix { };
         }
       );
 
       apps = forAllSystems (system: {
         default = {
           type = "app";
-          program = "${self.packages.${system}.dmesg-watch}/bin/dmesg-watch";
-          meta.description = "Run dmesg-watch directly via nix run";
+          program = "${self.packages.${system}.scurrytail}/bin/scurrytail";
+          meta.description = "Run scurrytail directly via nix run";
         };
       });
 
@@ -49,20 +49,20 @@
       formatter = forAllSystems (system: (pkgsFor system).nixpkgs-fmt);
 
       overlays = {
-        default = self.overlays.dmesg-watch;
-        dmesg-watch = final: prev: {
-          dmesg-watch = final.callPackage ./nix/package.nix { };
+        default = self.overlays.scurrytail;
+        scurrytail = final: prev: {
+          scurrytail = final.callPackage ./nix/package.nix { };
         };
       };
 
       nixosModules = {
-        default = self.nixosModules.dmesg-watch;
-        dmesg-watch = import ./nix/nixos-module.nix self;
+        default = self.nixosModules.scurrytail;
+        scurrytail = import ./nix/nixos-module.nix self;
       };
 
       homeManagerModules = {
-        default = self.homeManagerModules.dmesg-watch;
-        dmesg-watch = import ./nix/hm-module.nix self;
+        default = self.homeManagerModules.scurrytail;
+        scurrytail = import ./nix/hm-module.nix self;
       };
 
       homeModules = self.homeManagerModules;

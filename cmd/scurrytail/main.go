@@ -12,16 +12,16 @@ import (
 	"time"
 
 	"github.com/ardanlabs/conf/v3"
-	"github.com/comicdeed/dmesg-watch/internal/config"
-	"github.com/comicdeed/dmesg-watch/internal/journal"
-	"github.com/comicdeed/dmesg-watch/internal/launcher"
-	"github.com/comicdeed/dmesg-watch/internal/notify"
-	"github.com/comicdeed/dmesg-watch/internal/tracker"
-	"github.com/comicdeed/dmesg-watch/internal/tray"
+	"github.com/comicdeed/scurrytail/internal/config"
+	"github.com/comicdeed/scurrytail/internal/journal"
+	"github.com/comicdeed/scurrytail/internal/launcher"
+	"github.com/comicdeed/scurrytail/internal/notify"
+	"github.com/comicdeed/scurrytail/internal/tracker"
+	"github.com/comicdeed/scurrytail/internal/tray"
 )
 
 const (
-	projectURL = "https://github.com/comicdeed/dmesg-watch"
+	projectURL = "https://github.com/comicdeed/scurrytail"
 )
 
 var (
@@ -37,7 +37,7 @@ func main() {
 			os.Exit(0)
 		}
 		if errors.Is(err, conf.ErrVersionWanted) {
-			fmt.Printf("dmesg-watch %s\n", version)
+			fmt.Printf("ScurryTail %s\n", version)
 			os.Exit(0)
 		}
 		log.Fatalf("Fatal: %v", err)
@@ -73,7 +73,7 @@ func main() {
 		Cooldown:  cfg.Cooldown,
 	})
 
-	notifier := notify.New("dmesg-watch")
+	notifier := notify.New("ScurryTail")
 
 	var uiTray *tray.Tray
 	uiTray = tray.New(

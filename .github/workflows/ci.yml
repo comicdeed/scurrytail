@@ -35,4 +35,4 @@ jobs:
         run: go test -v -race ./...
 
       - name: Dry Run Build
-        run: go build -v ./cmd/dmesg-watch
+        run: go build -v ./cmd/scurrytail

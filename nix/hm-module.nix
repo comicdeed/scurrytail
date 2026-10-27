@@ -2,7 +2,7 @@ self:
 { config, lib, pkgs, ... }:
 
 let
-  cfg = config.services.dmesg-watch;
+  cfg = config.services.scurrytail;
   yamlFormat = pkgs.formats.yaml { };
 
   configData = lib.filterAttrs (_: v: v != null)
@@ -14,17 +14,17 @@ let
       viewer_cmd = cfg.viewerCmd;
     } // cfg.settings;
 
-  configFile = yamlFormat.generate "dmesg-watch-config.yaml" configData;
+  configFile = yamlFormat.generate "scurrytail-config.yaml" configData;
 in
 {
-  options.services.dmesg-watch = {
-    enable = lib.mkEnableOption "Lightweight Linux kernel error monitor daemon";
+  options.services.scurrytail = {
+    enable = lib.mkEnableOption "ScurryTail - Nimble Linux system tray applet for tailing fast-moving kernel logs";
 
     package = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.system}.default or (pkgs.callPackage ./package.nix { });
-      defaultText = lib.literalExpression "inputs.dmesg-watch.packages.\${pkgs.system}.default";
-      description = "The dmesg-watch package to install and run.";
+      defaultText = lib.literalExpression "inputs.scurrytail.packages.\${pkgs.system}.default";
+      description = "The scurrytail package to install and run.";
     };
 
     threshold = lib.mkOption {
@@ -69,28 +69,28 @@ in
         backend = "dmesg";
         threshold = 3;
       };
-      description = "Arbitrary settings serialized directly to ~/.config/dmesg-watch/config.yaml.";
+      description = "Arbitrary settings serialized directly to ~/.config/scurrytail/config.yaml.";
     };
   };
 
   config = lib.mkIf cfg.enable {
     home.packages = [ cfg.package ];
 
-    xdg.configFile."dmesg-watch/config.yaml" = lib.mkIf (configData != { }) {
+    xdg.configFile."scurrytail/config.yaml" = lib.mkIf (configData != { }) {
       source = configFile;
     };
 
-    systemd.user.services.dmesg-watch = {
+    systemd.user.services.scurrytail = {
       Unit = {
-        Description = "Lightweight Linux kernel error monitor daemon";
-        Documentation = [ "https://github.com/codemedic/dmesg-watch" ];
+        Description = "ScurryTail - Nimble Linux system tray kernel error monitor";
+        Documentation = [ "https://github.com/comicdeed/scurrytail" ];
         PartOf = [ "graphical-session.target" ];
         After = [ "graphical-session.target" ];
       };
 
       Service = {
         Type = "simple";
-        ExecStart = "${cfg.package}/bin/dmesg-watch";
+        ExecStart = "${cfg.package}/bin/scurrytail";
         Restart = "on-failure";
         RestartSec = "5s";
       };

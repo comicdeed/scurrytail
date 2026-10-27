@@ -7,8 +7,8 @@ BIN_DIR="$PREFIX/bin"
 
 usage() {
     echo "Usage: $0 [--install | --uninstall]"
-    echo "  --install   Install dmesg-watch binary and user service (default)"
-    echo "  --uninstall Remove dmesg-watch binary and user service"
+    echo "  --install   Install scurrytail binary and user service (default)"
+    echo "  --uninstall Remove scurrytail binary and user service"
     exit 1
 }
 
@@ -25,58 +25,58 @@ if [ "$ACTION" = "install" ]; then
     echo "==> Verifying system prerequisites..."
     if ! command -v journalctl >/dev/null 2>&1; then
         echo "Error: 'journalctl' was not found on this system." >&2
-        echo "dmesg-watch requires systemd-journald to stream kernel errors." >&2
+        echo "scurrytail requires systemd-journald to stream kernel errors." >&2
         exit 1
     fi
 
     if [ ! -d /run/systemd/system ]; then
         echo "Error: systemd is not running as the active init system." >&2
-        echo "dmesg-watch requires a running systemd user session." >&2
+        echo "scurrytail requires a running systemd user session." >&2
         exit 1
     fi
 
-    echo "==> Installing dmesg-watch..."
+    echo "==> Installing scurrytail..."
     mkdir -p "$BIN_DIR"
     mkdir -p "$SYSTEMD_DIR"
 
-    if [ -f "./bin/dmesg-watch" ]; then
-        cp -f "./bin/dmesg-watch" "$BIN_DIR/dmesg-watch"
-    elif [ -f "./dmesg-watch" ]; then
-        cp -f "./dmesg-watch" "$BIN_DIR/dmesg-watch"
+    if [ -f "./bin/scurrytail" ]; then
+        cp -f "./bin/scurrytail" "$BIN_DIR/scurrytail"
+    elif [ -f "./scurrytail" ]; then
+        cp -f "./scurrytail" "$BIN_DIR/scurrytail"
     else
-        echo "Error: dmesg-watch binary not found in current directory or bin/" >&2
+        echo "Error: scurrytail binary not found in current directory or bin/" >&2
         exit 1
     fi
-    chmod 755 "$BIN_DIR/dmesg-watch"
+    chmod 755 "$BIN_DIR/scurrytail"
 
     SERVICE_SRC=""
-    if [ -f "./systemd/dmesg-watch.service" ]; then
-        SERVICE_SRC="./systemd/dmesg-watch.service"
-    elif [ -f "./dmesg-watch.service" ]; then
-        SERVICE_SRC="./dmesg-watch.service"
+    if [ -f "./systemd/scurrytail.service" ]; then
+        SERVICE_SRC="./systemd/scurrytail.service"
+    elif [ -f "./scurrytail.service" ]; then
+        SERVICE_SRC="./scurrytail.service"
     else
-        echo "Error: dmesg-watch.service not found" >&2
+        echo "Error: scurrytail.service not found" >&2
         exit 1
     fi
-    sed "s|ExecStart=/usr/bin/dmesg-watch|ExecStart=$BIN_DIR/dmesg-watch|" "$SERVICE_SRC" > "$SYSTEMD_DIR/dmesg-watch.service"
-    chmod 644 "$SYSTEMD_DIR/dmesg-watch.service"
+    sed "s|ExecStart=/usr/bin/scurrytail|ExecStart=$BIN_DIR/scurrytail|" "$SERVICE_SRC" > "$SYSTEMD_DIR/scurrytail.service"
+    chmod 644 "$SYSTEMD_DIR/scurrytail.service"
 
     echo "==> Reloading systemd user daemon..."
     systemctl --user daemon-reload || true
 
-    echo "==> Enabling and starting dmesg-watch user service..."
-    systemctl --user enable --now dmesg-watch.service || true
+    echo "==> Enabling and starting scurrytail user service..."
+    systemctl --user enable --now scurrytail.service || true
 
-    echo "==> Installation complete! dmesg-watch is active."
+    echo "==> Installation complete! scurrytail is active."
 else
     echo "==> Stopping service if active..."
-    systemctl --user stop dmesg-watch.service 2>/dev/null || true
-    systemctl --user disable dmesg-watch.service 2>/dev/null || true
+    systemctl --user stop scurrytail.service 2>/dev/null || true
+    systemctl --user disable scurrytail.service 2>/dev/null || true
 
     echo "==> Removing installed files..."
-    rm -f "$BIN_DIR/dmesg-watch"
-    rm -f "$SYSTEMD_DIR/dmesg-watch.service"
+    rm -f "$BIN_DIR/scurrytail"
+    rm -f "$SYSTEMD_DIR/scurrytail.service"
 
     systemctl --user daemon-reload || true
-    echo "==> dmesg-watch uninstalled."
+    echo "==> scurrytail uninstalled."
 fi

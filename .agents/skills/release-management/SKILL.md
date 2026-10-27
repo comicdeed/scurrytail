@@ -1,11 +1,11 @@
 ---
 name: release-management
-description: Comprehensive release lifecycle orchestrator for dmesg-watch with two operational modes Pre-Release (fast tag-push for betas and daily development) and Formal Release (cumulative milestone finalization for stable vX.Y.Z). Automates version bumps, changelog notes, validation gates, git mechanics, and GitHub Actions post-release verification.
+description: Comprehensive release lifecycle orchestrator for ScurryTail with two operational modes Pre-Release (fast tag-push for betas and daily development) and Formal Release (cumulative milestone finalization for stable vX.Y.Z). Automates version bumps, changelog notes, validation gates, git mechanics, and GitHub Actions post-release verification.
 ---
 
 # Release Management Skill
 
-This skill defines the complete operational mechanics for cutting releases of **dmesg-watch** (`github.com/comicdeed/dmesg-watch`). It operates in two explicit modes:
+This skill defines the complete operational mechanics for cutting releases of **ScurryTail** (`github.com/comicdeed/scurrytail`). It operates in two explicit modes:
 
 - **Mode 1: Pre-Release (Fast Tag-Push)** — For rapid beta iterations, testing, and daily development builds.
 - **Mode 2: Formal Release (Milestone Finalization)** — For major production milestones (`vX.Y.Z`).
@@ -91,7 +91,7 @@ git log "${PREV_TAG}..HEAD" --oneline --no-merges
 ```
 
 ### 2. Update Version in Code
-Update the default fallback version string in `cmd/dmesg-watch/main.go`:
+Update the default fallback version string in `cmd/scurrytail/main.go`:
 ```go
 var version = "v0.2.0-beta.N"
 ```
@@ -120,7 +120,7 @@ Pre-releases maintain an evolving **Living Draft** of the milestone. Add a new s
 ### 4. Direct Commit, Tag, and Push
 Execute the fast tag-push sequence directly on `main`:
 ```bash
-git add cmd/dmesg-watch/main.go CHANGELOG.md internal/
+git add cmd/scurrytail/main.go CHANGELOG.md internal/
 git commit -m "chore(release): prepare vX.Y.Z-beta.N"
 git tag -a vX.Y.Z-beta.N -m "Release vX.Y.Z-beta.N"
 git push origin main --tags
@@ -155,7 +155,7 @@ git log "${LAST_STABLE}..HEAD" --oneline --no-merges
 ```
 
 ### 2. Update Version in Code
-Update the default fallback version string in `cmd/dmesg-watch/main.go`:
+Update the default fallback version string in `cmd/scurrytail/main.go`:
 ```go
 var version = "vX.Y.Z"
 ```
@@ -191,7 +191,7 @@ The first feature milestone of dmesg-watch, delivering a lightweight, resource-c
 ### 4. Git Mechanics
 - **Direct Tag-Push (Standard)**:
   ```bash
-  git add cmd/dmesg-watch/main.go CHANGELOG.md
+  git add cmd/scurrytail/main.go CHANGELOG.md
   git commit -m "chore(release): prepare vX.Y.Z"
   git tag -a vX.Y.Z -m "Release vX.Y.Z"
   git push origin main --tags

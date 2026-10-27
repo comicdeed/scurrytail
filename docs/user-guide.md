@@ -1,12 +1,12 @@
 # User Guide
 
-`dmesg-watch` is a quiet Linux desktop tray application that monitors kernel errors in real time. It sits in your system tray, maintains a rolling count of recent faults, and notifies you only when an error burst crosses your threshold.
+`ScurryTail` is a nimble Linux desktop tray application that monitors kernel errors in real time. It sits in your system tray, maintains a rolling count of recent faults, and notifies you only when an error burst crosses your threshold so you can chase the tail of your logs.
 
 ---
 
 ## 🖥️ System Tray States
 
-`dmesg-watch` stays invisible until something needs your attention:
+`ScurryTail` stays invisible until something needs your attention:
 
 | State | Status | Panel / Tray UI | Desktop Popups | Interactions |
 | :--- | :--- | :--- | :--- | :--- |
@@ -62,8 +62,8 @@ Latest: usb 1-1: device descriptor read/64, error -110
 View Kernel Logs (journalctl)
 ────────────────────────────────────────────────────────
 About                                                  ▶
-  ├─ dmesg-watch v0.3.0
-  ├─ Real-time kernel error monitor
+  ├─ ScurryTail v0.3.0
+  ├─ A nimble Linux system tray applet for tailing fast-moving kernel logs
   ├─ ──────────────────────────────────────────────────
   └─ Website
 Quit
@@ -79,7 +79,7 @@ Quit
 
 ## 🔔 Desktop Notifications
 
-`dmesg-watch` avoids desktop spam:
+`ScurryTail` avoids desktop spam:
 * It stays silent during occasional, isolated errors.
 * It sends a notification popup only when error frequency exceeds your threshold (default: 5 errors in 60 seconds).
 * An automatic 45-second cooldown suppresses follow-up popups during error bursts while the tray menu continues updating in real time.
@@ -90,10 +90,10 @@ Quit
 
 When running as a background service, using a configuration file avoids needing to edit systemd unit files.
 
-Create **`~/.config/dmesg-watch/config.yaml`**:
+Create **`~/.config/scurrytail/config.yaml`**:
 
 ```yaml
-# dmesg-watch configuration
+# ScurryTail configuration
 
 # Kernel streaming backend: auto | journalctl | dmesg
 backend: auto
@@ -115,6 +115,9 @@ viewer_cmd: ["ghostty", "-e", "journalctl", "-k", "-f", "-n", "50"]
 Configuration values are loaded in order:
 $$\text{Built-in Defaults} \longrightarrow \text{Config File} \longrightarrow \text{Environment Variables} \longrightarrow \text{Command Line Flags}$$
 
+> [!NOTE]
+> For smooth upgrades, `ScurryTail` also checks legacy `~/.config/dmesg-watch/config.yaml` if `~/.config/scurrytail/config.yaml` is not present.
+
 ---
 
 ## 💻 Command-Line Flags & Environment Variables
@@ -123,12 +126,12 @@ All settings can be configured via YAML configuration file, environment variable
 
 | Flag | Environment Variable | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `-c`, `--config` | `DMESG_WATCH_CONFIG` | *(auto)* | Path to custom YAML configuration file. |
-| `--backend` | `DMESG_WATCH_BACKEND` | `auto` | Kernel streaming backend: `auto`, `journalctl`, or `dmesg`. |
-| `--threshold` | `DMESG_WATCH_THRESHOLD` | `5` | Number of errors within the window required to trigger a notification. |
-| `--window` | `DMESG_WATCH_WINDOW` | `1m` | Rolling evaluation window duration (`30s`, `1m`, `2m`). |
-| `--cooldown` | `DMESG_WATCH_COOLDOWN` | `45s` | Minimum wait time between desktop notifications during sustained errors. |
-| `--viewer-cmd` | `DMESG_WATCH_VIEWER_CMD` | *(auto)* | Custom command to run when clicking "View Kernel Logs". |
+| `-c`, `--config` | `SCURRYTAIL_CONFIG` | *(auto)* | Path to custom YAML configuration file. |
+| `--backend` | `SCURRYTAIL_BACKEND` | `auto` | Kernel streaming backend: `auto`, `journalctl`, or `dmesg`. |
+| `--threshold` | `SCURRYTAIL_THRESHOLD` | `5` | Number of errors within the window required to trigger a notification. |
+| `--window` | `SCURRYTAIL_WINDOW` | `1m` | Rolling evaluation window duration (`30s`, `1m`, `2m`). |
+| `--cooldown` | `SCURRYTAIL_COOLDOWN` | `45s` | Minimum wait time between desktop notifications during sustained errors. |
+| `--viewer-cmd` | `SCURRYTAIL_VIEWER_CMD` | *(auto)* | Custom command to run when clicking "View Kernel Logs". |
 | `-h`, `--help` | — | — | Displays the help message with options and environment variables. |
 | `-v`, `--version` | — | — | Prints the application version and exits. |
 
@@ -136,17 +139,17 @@ All settings can be configured via YAML configuration file, environment variable
 
 **Lower the alert threshold for sensitive hardware testing:**
 ```bash
-dmesg-watch -threshold=2 -window=30s
+scurrytail -threshold=2 -window=30s
 ```
 
 **Use dmesg backend on non-systemd systems:**
 ```bash
-dmesg-watch -backend=dmesg
+scurrytail -backend=dmesg
 ```
 
 **Open logs using your favorite terminal or GUI viewer:**
 ```bash
-dmesg-watch -viewer-cmd="ghostty -e journalctl -k -f"
+scurrytail -viewer-cmd="ghostty -e journalctl -k -f"
 ```
 
 ---
@@ -170,33 +173,33 @@ Many Linux distributions restrict unprivileged `dmesg` access (`kernel.dmesg_res
   ```
 * Or grant the `CAP_SYSLOG` capability to the binary:
   ```bash
-  sudo setcap cap_syslog=ep $(which dmesg-watch)
+  sudo setcap cap_syslog=ep $(which scurrytail)
   ```
 
 ---
 
 ## 🛠️ Service Management
 
-When installed from packages (`.deb`, `.rpm`) or `make install`, `dmesg-watch` runs automatically as a systemd user service.
+When installed from packages (`.deb`, `.rpm`) or `make install`, `scurrytail` runs automatically as a systemd user service.
 
 **Check service status:**
 ```bash
-systemctl --user status dmesg-watch.service
+systemctl --user status scurrytail.service
 ```
 
 **Stop the service:**
 ```bash
-systemctl --user stop dmesg-watch.service
+systemctl --user stop scurrytail.service
 ```
 
 **Disable automatic startup:**
 ```bash
-systemctl --user disable dmesg-watch.service
+systemctl --user disable scurrytail.service
 ```
 
 **Enable automatic startup:**
 ```bash
-systemctl --user enable --now dmesg-watch.service
+systemctl --user enable --now scurrytail.service
 ```
 
 ---
@@ -205,21 +208,21 @@ systemctl --user enable --now dmesg-watch.service
 
 ### 1. Run Ad-Hoc
 ```bash
-nix run github:codemedic/dmesg-watch
+nix run github:comicdeed/scurrytail
 ```
 
 ### 2. Home Manager (Per-User)
 Add the input to `flake.nix`:
 ```nix
-inputs.dmesg-watch.url = "github:codemedic/dmesg-watch";
+inputs.scurrytail.url = "github:comicdeed/scurrytail";
 ```
 
 Import and enable in Home Manager:
 ```nix
 { inputs, ... }: {
-  imports = [ inputs.dmesg-watch.homeManagerModules.default ];
+  imports = [ inputs.scurrytail.homeManagerModules.default ];
 
-  services.dmesg-watch = {
+  services.scurrytail = {
     enable = true;
     backend = "journalctl";
     threshold = 5;
@@ -234,14 +237,13 @@ Import and enable in Home Manager:
 Add the module in `/etc/nixos/configuration.nix`:
 ```nix
 { inputs, ... }: {
-  imports = [ inputs.dmesg-watch.nixosModules.default ];
+  imports = [ inputs.scurrytail.nixosModules.default ];
 
-  services.dmesg-watch = {
+  services.scurrytail = {
     enable = true;
     backend = "auto";
     threshold = 5;
   };
 }
 ```
-This installs `dmesg-watch` system-wide and automatically starts the service for any desktop session (`graphical-session.target`).
-
+This installs `scurrytail` system-wide and automatically starts the service for any desktop session (`graphical-session.target`).

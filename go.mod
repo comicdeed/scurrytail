@@ -1,4 +1,4 @@
-module github.com/comicdeed/dmesg-watch
+module github.com/comicdeed/scurrytail
 
 go 1.27.2
 

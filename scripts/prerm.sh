@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# Stop and disable dmesg-watch across active desktop sessions
+# Stop and disable scurrytail across active desktop sessions
 for runtime in /run/user/*; do
     [ -d "$runtime/systemd" ] || continue
     uid="${runtime##*/}"
@@ -14,9 +14,9 @@ for runtime in /run/user/*; do
     [ -n "$uname" ] || continue
 
     runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
-        systemctl --user stop dmesg-watch.service 2>/dev/null || true
+        systemctl --user stop scurrytail.service 2>/dev/null || true
     runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
-        systemctl --user disable dmesg-watch.service 2>/dev/null || true
+        systemctl --user disable scurrytail.service 2>/dev/null || true
     runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
         systemctl --user daemon-reload 2>/dev/null || true
 done

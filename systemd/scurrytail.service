@@ -1,10 +1,10 @@
 [Unit]
-Description=dmesg watch - System Tray Kernel Error Monitor
+Description=ScurryTail - Nimble System Tray Kernel Error Monitor
 After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
-ExecStart=/usr/bin/dmesg-watch
+ExecStart=/usr/bin/scurrytail
 Restart=on-failure
 RestartSec=5
 
