@@ -1,12 +1,16 @@
 APP_NAME := scurrytail
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "v0.1.0")
 
+# User & Group mapping for container operations
+UID ?= $(shell id -u)
+GID ?= $(shell id -g)
+
 # Go Toolchain (native binary with automatic Docker fallback)
 GO_BIN ?= $(shell which go 2>/dev/null || ( [ -x $(HOME)/.local/share/brew/bin/go ] && echo $(HOME)/.local/share/brew/bin/go ))
 GOLANG_IMAGE ?= golang:alpine
 ifeq ($(GO_BIN),)
-GO ?= docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e CGO_ENABLED=0 $(GOLANG_IMAGE) go
-GOFMT ?= docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) $(GOLANG_IMAGE) gofmt
+GO ?= docker run --rm --user $(UID):$(GID) -e HOME=/tmp -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e CGO_ENABLED=0 $(GOLANG_IMAGE) go
+GOFMT ?= docker run --rm --user $(UID):$(GID) -e HOME=/tmp -v $(CURDIR):$(CURDIR) -w $(CURDIR) $(GOLANG_IMAGE) gofmt
 TEST_FLAGS ?= -v
 else
 GO ?= $(GO_BIN)
@@ -82,7 +86,7 @@ clean:
 # Nix Toolchain (native binary with automatic Docker fallback)
 NIX_BIN ?= $(shell which nix 2>/dev/null)
 ifeq ($(NIX_BIN),)
-NIX ?= docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) nixos/nix:latest nix --extra-experimental-features "nix-command flakes"
+NIX ?= docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint sh nixos/nix:latest -c 'nix --extra-experimental-features "nix-command flakes" "$$@"; status=$$?; chown -hR $(UID):$(GID) $(CURDIR) 2>/dev/null; exit $$status' --
 else
 NIX ?= $(NIX_BIN) --extra-experimental-features "nix-command flakes"
 endif
