@@ -1,9 +1,25 @@
 # Changelog
 
-All notable changes to **dmesg-watch** are documented in this file.
+All notable changes to **ScurryTail** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v0.3.0-beta.12] - 2026-10-27
+
+Rebranding to ScurryTail with new agile squirrel mascot, updated CLI binary and services, and theme-adaptive documentation.
+
+### ✨ Highlights
+* **✨ Rebranded to ScurryTail**: Renamed the project from `dmesg-watch` to `ScurryTail` (`scurrytail`), capturing our nimble, featherweight daemon tailing fast-moving kernel logs.
+* **✨ Agile Mascot Imagery**: Added dark and light mode mascot banners dynamically adapting to the user's desktop/GitHub theme.
+* **✨ Unified `scurrytail` Command & Service**: Executable binary renamed to `scurrytail` with systemd unit `scurrytail.service` and preset `50-scurrytail.preset`.
+* **✨ `SCURRYTAIL_*` Environment Namespace**: Migrated environment variables to `SCURRYTAIL_BACKEND`, `SCURRYTAIL_THRESHOLD`, etc., and primary config to `~/.config/scurrytail/config.yaml` with legacy fallback support.
+* **Clean Attention De-escalation**: Fixed D-Bus status desynchronization so the tray icon cleanly stops flashing and returns to standard warning state when error rates subside below threshold.
+
+### 🛠️ Technical Notes
+* ✨ Updated Go module path to `github.com/comicdeed/scurrytail` and entrypoint to `cmd/scurrytail/main.go`.
+* ✨ Updated Nix Flake outputs, package derivations (`pname = "scurrytail"`), and Home Manager/NixOS modules (`services.scurrytail`).
+* ✨ Aligned GoReleaser configuration with `scurrytail` artifacts and packages.
 
 ## [v0.3.0-beta.11] - 2026-10-27
 
