@@ -5,6 +5,21 @@ All notable changes to **dmesg-watch** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.11] - 2026-10-27
+
+Robust StatusNotifierItem state tracking engine with clean attention de-escalation on error decay and user guide visual state flow.
+
+### ✨ Highlights
+* **✨ Clean Attention De-escalation**: Fixed D-Bus status desynchronization so the tray icon cleanly stops flashing and returns to standard warning state when error rates subside below threshold.
+* **✨ State Flow Documentation**: Added native Mermaid UML state machine diagram and UI behavior breakdown to the user guide under "How the Icon Behaves".
+* **Quiet Background Presence**: Tray icon remains hidden by default when 0 errors are recorded (`Passive` StatusNotifierItem status), leaving the desktop panel clean and distraction-free.
+* **Fault-Driven Dynamic Appearance**: Tray icon emerges into view (`Active` status) with an amber warning icon when kernel errors occur within the rolling window.
+* **Desktop Attention on Threshold Breaches**: Requests desktop environment attention (`NeedsAttention` status) when kernel error counts reach or exceed the configured alert threshold.
+
+### 🛠️ Technical Notes
+* ✨ Refactored tray state machine in `internal/tray/tray.go` to use an explicit 3-state enum (`statusPassive`, `statusActive`, `statusNeedsAttention`), eliminating boolean permutations and duplicate D-Bus signal emissions.
+* ✨ Centralized state transitions in `setStatusLocked()` ensuring proper call sequencing (`Show()` before `RequestAttention()` on direct bursts from hidden state).
+
 ## [v0.3.0-beta.10] - 2026-10-26
 
 Tray icon is hidden by default on clean systems, appearing on faults and requesting desktop attention when error thresholds are crossed.
