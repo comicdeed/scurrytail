@@ -123,7 +123,7 @@ To inspect this stream manually from a shell:
 
 ```bash
 # Follow live kernel errors interleaved with ScurryTail state evaluations:
-journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f
+journalctl -b _TRANSPORT=kernel PRIORITY=0 PRIORITY=1 PRIORITY=2 PRIORITY=3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f
 ```
 
 > [!TIP]
@@ -196,7 +196,7 @@ cooldown: 45s
 
 # Custom command to open when clicking "View Kernel Logs" (one-line array format)
 # If empty, automatically matches active backend (interleaved journalctl or dmesg)
-viewer_cmd: ["ghostty", "-e", "journalctl", "-b", "_TRANSPORT=kernel", "-p", "3", "+", "-b", "_SYSTEMD_USER_UNIT=scurrytail.service", "+", "-b", "SYSLOG_IDENTIFIER=scurrytail", "-n", "50", "-f"]
+viewer_cmd: ["ghostty", "-e", "journalctl", "-b", "_TRANSPORT=kernel", "PRIORITY=0", "PRIORITY=1", "PRIORITY=2", "PRIORITY=3", "+", "-b", "_SYSTEMD_USER_UNIT=scurrytail.service", "+", "-b", "SYSLOG_IDENTIFIER=scurrytail", "-n", "50", "-f"]
 
 # Benign errors to completely suppress (no tray count, no alerts)
 ignore:

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 )
@@ -148,6 +149,39 @@ func makeSpecForBinary(path string) *TerminalSpec {
 	}
 }
 
+// DefaultJournalctlViewer defines the canonical journalctl command for viewing correlated logs.
+const DefaultJournalctlViewer = "journalctl -b _TRANSPORT=kernel PRIORITY=0 PRIORITY=1 PRIORITY=2 PRIORITY=3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f"
+
+// PrepareRunnerScript writes an executable script in XDG_RUNTIME_DIR (or TempDir) that execs the viewer command.
+// It returns the absolute path to the executable script.
+func PrepareRunnerScript(viewerArgs []string) (string, error) {
+	var cmdStr string
+	if len(viewerArgs) == 0 {
+		cmdStr = DefaultJournalctlViewer
+	} else if len(viewerArgs) == 1 {
+		cmdStr = strings.TrimSpace(viewerArgs[0])
+	} else {
+		cmdStr = strings.Join(viewerArgs, " ")
+	}
+
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = filepath.Join(os.TempDir(), fmt.Sprintf("scurrytail-%d", os.Getuid()))
+	}
+	scurryDir := filepath.Join(runtimeDir, "scurrytail")
+	if err := os.MkdirAll(scurryDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create runtime runner directory: %w", err)
+	}
+
+	scriptPath := filepath.Join(scurryDir, "view-logs.sh")
+	content := fmt.Sprintf("#!/bin/sh\nexec %s\n", cmdStr)
+	if err := os.WriteFile(scriptPath, []byte(content), 0700); err != nil {
+		return "", fmt.Errorf("failed to write runner script: %w", err)
+	}
+
+	return scriptPath, nil
+}
+
 // BuildCommandArgs constructs the exec.Cmd for the requested argument slice using the resolved terminal.
 func BuildCommandArgs(viewerArgs []string) (*exec.Cmd, error) {
 	spec, err := DetectTerminal()
@@ -155,19 +189,14 @@ func BuildCommandArgs(viewerArgs []string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	if len(viewerArgs) == 0 {
-		viewerArgs = []string{"journalctl", "-b", "_TRANSPORT=kernel", "-p", "3", "+", "-b", "_SYSTEMD_USER_UNIT=scurrytail.service", "+", "-b", "SYSLOG_IDENTIFIER=scurrytail", "-n", "50", "-f"}
+	scriptPath, err := PrepareRunnerScript(viewerArgs)
+	if err != nil {
+		return nil, err
 	}
 
 	var cmdArgs []string
 	cmdArgs = append(cmdArgs, spec.ArgsPrefix...)
-
-	// If a single argument contains shell metacharacters, wrap in sh -c
-	if len(viewerArgs) == 1 && strings.ContainsAny(viewerArgs[0], "|;&><$") {
-		cmdArgs = append(cmdArgs, "sh", "-c", viewerArgs[0])
-	} else {
-		cmdArgs = append(cmdArgs, viewerArgs...)
-	}
+	cmdArgs = append(cmdArgs, scriptPath)
 
 	cmd := exec.Command(spec.Binary, cmdArgs...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -182,10 +211,7 @@ func BuildCommand(viewerCmd string) (*exec.Cmd, error) {
 	if viewerCmd == "" {
 		return BuildCommandArgs(nil)
 	}
-	if strings.ContainsAny(viewerCmd, "|;&><$") {
-		return BuildCommandArgs([]string{viewerCmd})
-	}
-	return BuildCommandArgs(strings.Fields(viewerCmd))
+	return BuildCommandArgs([]string{viewerCmd})
 }
 
 // LaunchArgs resolves the terminal emulator and asynchronously runs the command args in a detached session.

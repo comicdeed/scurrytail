@@ -10,7 +10,7 @@ import (
 )
 
 // DefaultViewerJournalctl is the default command to open correlated kernel errors and ScurryTail audit events.
-const DefaultViewerJournalctl = "journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f"
+const DefaultViewerJournalctl = "journalctl -b _TRANSPORT=kernel PRIORITY=0 PRIORITY=1 PRIORITY=2 PRIORITY=3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f"
 
 // DefaultViewerDmesg is the default command to stream kernel errors when dmesg is active.
 const DefaultViewerDmesg = "dmesg -w -l err,crit,alert,emerg -T"

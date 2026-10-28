@@ -5,6 +5,20 @@ All notable changes to **ScurryTail** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.16] - 2026-10-28
+
+Runtime runner script generation for reliable terminal dispatch and scoped kernel priority filtering.
+
+### ✨ Highlights
+* **✨ Runtime Runner Script Generation**: System tray log viewer now generates an executable runner script (`$XDG_RUNTIME_DIR/scurrytail/view-logs.sh`) to launch viewer commands, completely resolving terminal CLI argument parsing quirks and character stripping across Ghostty, Konsole, GNOME Terminal, and other emulators.
+* **✨ Full Interleaved Audit Stream Visibility**: Scoped kernel priority filtering to `_TRANSPORT=kernel PRIORITY=0 PRIORITY=1 PRIORITY=2 PRIORITY=3`, ensuring ScurryTail's `INFO`-level lifecycle and state telemetry entries are never filtered out by global priority flags.
+* **Interleaved Audit Log Viewer**: Upgraded the system tray's **View Kernel Logs (journalctl)** action to automatically stream kernel errors interleaved with ScurryTail's state evaluations.
+
+### 🛠️ Technical Notes
+* ✨ Implemented `PrepareRunnerScript` in `internal/launcher/launcher.go` with atomic file generation in private user runtime tmpfs.
+* ✨ Updated `internal/journal/stream.go` and `internal/launcher/launcher.go` default viewer command to use per-field priority filters.
+* ✨ Updated unit tests in `internal/launcher/launcher_test.go` to verify runner script generation and execution specs.
+
 ## [v0.3.0-beta.15] - 2026-10-28
 
 Interleaved kernel and ScurryTail audit correlation in tray log viewer, robust Makefile toolchain dispatch, and documentation refinements.

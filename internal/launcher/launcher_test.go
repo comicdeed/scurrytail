@@ -45,8 +45,11 @@ func TestBuildCommand(t *testing.T) {
 		t.Fatalf("failed to create fake terminal: %v", err)
 	}
 
-	// Override TERMINAL env var to point to our fake terminal
+	// Override TERMINAL and XDG_RUNTIME_DIR env vars to point to temporary directory
 	t.Setenv("TERMINAL", fakeTerm)
+	t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+
+	expectedScript := filepath.Join(tmpDir, "scurrytail", "view-logs.sh")
 
 	t.Run("default command", func(t *testing.T) {
 		cmd, err := BuildCommand("")
@@ -56,13 +59,20 @@ func TestBuildCommand(t *testing.T) {
 		if cmd.Path != fakeTerm {
 			t.Errorf("expected cmd.Path %s, got %s", fakeTerm, cmd.Path)
 		}
-		// Expect: fake-terminal -e journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f
-		expected := []string{fakeTerm, "-e", "journalctl", "-b", "_TRANSPORT=kernel", "-p", "3", "+", "-b", "_SYSTEMD_USER_UNIT=scurrytail.service", "+", "-b", "SYSLOG_IDENTIFIER=scurrytail", "-n", "50", "-f"}
+		expected := []string{fakeTerm, "-e", expectedScript}
 		if strings.Join(cmd.Args, " ") != strings.Join(expected, " ") {
 			t.Errorf("expected args %v, got %v", expected, cmd.Args)
 		}
 		if cmd.SysProcAttr == nil || !cmd.SysProcAttr.Setsid {
 			t.Errorf("expected Setsid to be true")
+		}
+
+		data, err := os.ReadFile(expectedScript)
+		if err != nil {
+			t.Fatalf("failed to read generated runner script: %v", err)
+		}
+		if !strings.Contains(string(data), DefaultJournalctlViewer) {
+			t.Errorf("expected runner script to contain default viewer, got:\n%s", string(data))
 		}
 	})
 
@@ -71,9 +81,17 @@ func TestBuildCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		expected := []string{fakeTerm, "-e", "sh", "-c", "journalctl -k -e | grep -i error"}
+		expected := []string{fakeTerm, "-e", expectedScript}
 		if strings.Join(cmd.Args, " ") != strings.Join(expected, " ") {
 			t.Errorf("expected args %v, got %v", expected, cmd.Args)
+		}
+
+		data, err := os.ReadFile(expectedScript)
+		if err != nil {
+			t.Fatalf("failed to read generated runner script: %v", err)
+		}
+		if !strings.Contains(string(data), "journalctl -k -e | grep -i error") {
+			t.Errorf("expected runner script to contain custom command, got:\n%s", string(data))
 		}
 	})
 }
