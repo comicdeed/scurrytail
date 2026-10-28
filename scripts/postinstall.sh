@@ -16,9 +16,18 @@ for runtime in /run/user/*; do
     uname=$(id -nu "$uid" 2>/dev/null || true)
     [ -n "$uname" ] || continue
 
-    # Activate immediately for this user's live desktop session
+    # Reload systemd user daemon so it picks up any new unit file definitions
     runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
         systemctl --user daemon-reload 2>/dev/null || true
-    runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
-        systemctl --user enable --now scurrytail.service 2>/dev/null || true
+
+    # If the service is already running (upgrade scenario), seamlessly restart it;
+    # otherwise enable and start it (fresh install scenario).
+    if runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
+        systemctl --user is-active --quiet scurrytail.service 2>/dev/null; then
+        runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
+            systemctl --user restart scurrytail.service 2>/dev/null || true
+    else
+        runuser -u "$uname" -- env XDG_RUNTIME_DIR="$runtime" \
+            systemctl --user enable --now scurrytail.service 2>/dev/null || true
+    fi
 done

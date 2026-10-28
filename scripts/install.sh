@@ -64,8 +64,13 @@ if [ "$ACTION" = "install" ]; then
     echo "==> Reloading systemd user daemon..."
     systemctl --user daemon-reload || true
 
-    echo "==> Enabling and starting scurrytail user service..."
-    systemctl --user enable --now scurrytail.service || true
+    if systemctl --user is-active --quiet scurrytail.service 2>/dev/null; then
+        echo "==> Restarting active scurrytail user service..."
+        systemctl --user restart scurrytail.service || true
+    else
+        echo "==> Enabling and starting scurrytail user service..."
+        systemctl --user enable --now scurrytail.service || true
+    fi
 
     echo "==> Installation complete! scurrytail is active."
 else

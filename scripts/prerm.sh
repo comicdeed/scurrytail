@@ -1,6 +1,12 @@
 #!/bin/sh
 set -e
 
+# Only stop and disable on complete package removal.
+# On upgrade (RPM passes 1, DEB passes upgrade), do not stop or disable the service.
+if [ "$1" = "upgrade" ] || [ "$1" = "1" ]; then
+    exit 0
+fi
+
 # Stop and disable scurrytail across active desktop sessions
 for runtime in /run/user/*; do
     [ -d "$runtime/systemd" ] || continue

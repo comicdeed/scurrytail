@@ -47,7 +47,11 @@ install: build
 	sed 's|ExecStart=/usr/bin/$(APP_NAME)|ExecStart=$(PREFIX)/bin/$(APP_NAME)|' systemd/$(APP_NAME).service > $(SYSTEMD_USER_DIR)/$(APP_NAME).service
 	chmod 644 $(SYSTEMD_USER_DIR)/$(APP_NAME).service
 	systemctl --user daemon-reload || true
-	systemctl --user enable --now $(APP_NAME).service || true
+	if systemctl --user is-active --quiet $(APP_NAME).service 2>/dev/null; then \
+		systemctl --user restart $(APP_NAME).service || true; \
+	else \
+		systemctl --user enable --now $(APP_NAME).service || true; \
+	fi
 	@echo "Installed $(APP_NAME) to $(PREFIX)/bin/$(APP_NAME)"
 	@echo "Enabled and started $(APP_NAME).service in user session"
 
