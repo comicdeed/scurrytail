@@ -5,6 +5,23 @@ All notable changes to **ScurryTail** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.2-beta.2] - 2026-10-28
+
+Maintenance release pruning obsolete tracker and launcher interfaces and deduplicating Nix declarative module options.
+
+### ✨ Highlights
+* **✨ Unified Nix Module Configuration**: NixOS and Home Manager modules share a single canonical option schema, ensuring identical configuration semantics across system and user profiles.
+* **✨ Streamlined Codebase Footprint**: Pruned unused tracker and launcher interfaces to maintain a lightweight, resource-conscious core daemon.
+* **Zero Zombie Process Leaks**: Subprocess reaping ensures terminal and browser sessions terminate cleanly without dangling zombie processes.
+* **Unblocked Session Shutdown**: Dedicated signal listeners ensure instantaneous desktop logout and system reboot unhindered by D-Bus timeouts.
+* **Complete Category Menus & Runner Security**: All classified categories are dynamically registered in tray submenus with shell-quoted argument safety.
+
+### 🛠️ Technical Notes
+* ✨ Extracted shared Nix options to `nix/options.nix`, harmonizing Home Manager and NixOS declarative modules.
+* ✨ Removed unused `Tracker.Stats()`, `DefaultConfig()`, and `launcher.Launch(viewerCmd)` methods.
+* Simplified tray state transitions using unified `CalculateStatus` and added bounded notification dispatch.
+* Expanded journal line scanner buffer to 1 MiB and hardened kernel uptime timestamp parsing.
+
 ## [v0.3.2-beta.1] - 2026-10-28
 
 Maintenance release addressing child process leaks, D-Bus session shutdown hangs, log streaming resilience, runner script security, and YAML config layering.
