@@ -5,6 +5,24 @@ All notable changes to **ScurryTail** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.13] - 2026-10-28
+
+Subsystem pattern classification, benign error suppression, pure hierarchical YAML layering via conf.d/, and priority-latched desktop alerts.
+
+### ✨ Highlights
+* **✨ Subsystem Error Categories**: Classify errors into dedicated categories (`storage`, `gpu`, `wifi`, `dock`, `usb`) with independent sliding windows, alert thresholds, and notification urgency levels (`critical`, `normal`, `low`).
+* **✨ Benign Noise Suppression**: Suppress recurring, harmless kernel chatter (such as buggy ACPI DSDT tables, KVM MSR reads, or firmware blips) via top-level or category `ignore` lists with zero lock contention.
+* **✨ Layerable `conf.d/` Drop-ins**: Drop modular configuration files into `/etc/scurrytail/conf.d/*.yaml` and `~/.config/scurrytail/conf.d/*.yaml` with automatic lexical sorting, scalar overriding, and category pattern merging.
+* **✨ Priority-Latching Safeguard**: Critical alerts (such as drive I/O errors) latch the tray menu snippet and dynamic tooltip, preventing transient lower-urgency events from masking urgent faults.
+* **✨ Dmesg Subsystem Tag Preservation**: Fixed kernel log message normalization across `dmesg` and `journalctl`, ensuring driver subsystem prefixes (`EXT4-fs`, `iwlwifi`, `kvm`) match consistently across backends.
+
+### 🛠️ Technical Notes
+* ✨ Implemented lock-free two-tier pattern matching in `internal/tracker` with a zero-allocation `strings.Contains` fast-path for literal patterns and compiled RE2 for regexes.
+* ✨ Added bounded circular buffers (`maxCapacity`) and copy-to-head slice truncation in sliding-window trackers, eliminating memory leaks and bounding memory during extreme error floods.
+* ✨ Pre-allocated dynamic category menu items in `internal/tray` to prevent D-Bus `LayoutUpdated` storm loops and item leaks.
+* ✨ Throttled tray UI updates to at most 4Hz (every 250ms) using a coalescing ticker in `cmd/scurrytail/main.go`.
+* ✨ Mapped host user permissions (`UID:GID`) in Makefile Docker toolchain fallbacks to prevent creating root-owned build artifacts.
+
 ## [v0.3.0-beta.12] - 2026-10-27
 
 Rebranding to ScurryTail with new agile squirrel mascot, updated CLI binary and services, and theme-adaptive documentation.

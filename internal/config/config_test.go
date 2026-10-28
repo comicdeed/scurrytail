@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ func TestDefault(t *testing.T) {
 }
 
 func TestLoad_Defaults(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cfg, path, _, err := Load("v0.1.0", []string{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -107,6 +109,7 @@ viewer_cmd: "journalctl -k -f"
 }
 
 func TestLoad_EnvVarOverride(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("SCURRYTAIL_BACKEND", "dmesg")
 	t.Setenv("SCURRYTAIL_THRESHOLD", "15")
 	t.Setenv("SCURRYTAIL_COOLDOWN", "10s")
@@ -176,5 +179,126 @@ func TestLoad_ExplicitMissing(t *testing.T) {
 	_, _, _, err := Load("v0.1.0", []string{"--config", "/non/existent/config.yaml"})
 	if err == nil {
 		t.Errorf("expected error for missing explicit file, got nil")
+	}
+}
+
+func TestLoad_LayeredConfD(t *testing.T) {
+	tmpDir := t.TempDir()
+	confPath := filepath.Join(tmpDir, "config.yaml")
+	baseYAML := `
+threshold: 5
+window: 60s
+cooldown: 45s
+ignore:
+  - "ACPI:.*Method _OSI failed"
+categories:
+  disk:
+    threshold: 1
+    patterns:
+      - "EXT4-fs error"
+`
+	if err := os.WriteFile(confPath, []byte(baseYAML), 0644); err != nil {
+		t.Fatalf("failed to write base config: %v", err)
+	}
+
+	confD := filepath.Join(tmpDir, "conf.d")
+	if err := os.MkdirAll(confD, 0755); err != nil {
+		t.Fatalf("failed to create conf.d: %v", err)
+	}
+
+	wifiYAML := `
+categories:
+  wifi:
+    threshold: 8
+    window: 2m
+    patterns:
+      - "iwlwifi.*"
+`
+	if err := os.WriteFile(filepath.Join(confD, "10-wifi.yaml"), []byte(wifiYAML), 0644); err != nil {
+		t.Fatalf("failed to write 10-wifi.yaml: %v", err)
+	}
+
+	diskOverrideYAML := `
+threshold: 7
+categories:
+  disk:
+    urgency: critical
+    patterns:
+      - "nvme.*status: 0x"
+ignore:
+  - "thermal thermal_zone.*"
+`
+	if err := os.WriteFile(filepath.Join(confD, "20-disk-override.yaml"), []byte(diskOverrideYAML), 0644); err != nil {
+		t.Fatalf("failed to write 20-disk-override.yaml: %v", err)
+	}
+
+	cfg, loadedSummary, _, err := Load("v0.1.0", []string{"--config", confPath})
+	if err != nil {
+		t.Fatalf("unexpected load error: %v", err)
+	}
+
+	if cfg.Threshold != 7 {
+		t.Errorf("expected global threshold 7, got %d", cfg.Threshold)
+	}
+
+	expectedIgnore := []string{"ACPI:.*Method _OSI failed", "thermal thermal_zone.*"}
+	if !reflect.DeepEqual(cfg.Ignore, expectedIgnore) {
+		t.Errorf("expected ignore %v, got %v", expectedIgnore, cfg.Ignore)
+	}
+
+	diskCat, ok := cfg.Categories["disk"]
+	if !ok {
+		t.Fatalf("missing disk category")
+	}
+	if diskCat.Threshold != 1 {
+		t.Errorf("expected disk threshold 1, got %d", diskCat.Threshold)
+	}
+	if diskCat.Urgency != "critical" {
+		t.Errorf("expected disk urgency critical, got %s", diskCat.Urgency)
+	}
+	expectedDiskPatterns := []string{"EXT4-fs error", "nvme.*status: 0x"}
+	if !reflect.DeepEqual(diskCat.Patterns, expectedDiskPatterns) {
+		t.Errorf("expected disk patterns %v, got %v", expectedDiskPatterns, diskCat.Patterns)
+	}
+
+	wifiCat, ok := cfg.Categories["wifi"]
+	if !ok {
+		t.Fatalf("missing wifi category")
+	}
+	if wifiCat.Threshold != 8 {
+		t.Errorf("expected wifi threshold 8, got %d", wifiCat.Threshold)
+	}
+	if wifiCat.Window != 2*time.Minute {
+		t.Errorf("expected wifi window 2m, got %v", wifiCat.Window)
+	}
+	// Wifi cooldown wasn't set, so it should inherit global (45s)
+	if wifiCat.Cooldown != 45*time.Second {
+		t.Errorf("expected wifi cooldown 45s, got %v", wifiCat.Cooldown)
+	}
+
+	if !strings.Contains(loadedSummary, "10-wifi.yaml") || !strings.Contains(loadedSummary, "20-disk-override.yaml") {
+		t.Errorf("loadedSummary does not contain conf.d files: %s", loadedSummary)
+	}
+}
+
+func TestLoad_InvalidRegex(t *testing.T) {
+	tmpDir := t.TempDir()
+	confPath := filepath.Join(tmpDir, "config.yaml")
+	invalidYAML := `
+categories:
+  bad:
+    patterns:
+      - "[unclosed regex"
+`
+	if err := os.WriteFile(confPath, []byte(invalidYAML), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	_, _, _, err := Load("v0.1.0", []string{"--config", confPath})
+	if err == nil {
+		t.Fatalf("expected error on invalid regex, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid regex") {
+		t.Errorf("expected error to mention invalid regex, got: %v", err)
 	}
 }

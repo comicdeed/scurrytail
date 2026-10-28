@@ -3,6 +3,8 @@ package tray
 import (
 	_ "embed"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"fyne.io/systray"
@@ -24,33 +26,42 @@ const (
 
 // Tray manages the system tray icon, tooltips, and context menu items.
 type Tray struct {
-	mu         sync.Mutex
-	version    string
-	backend    string
-	threshold  int
-	status     status
-	mStats     *systray.MenuItem
-	mLatest    *systray.MenuItem
-	mViewLogs  *systray.MenuItem
-	mAbout     *systray.MenuItem
-	mWebsite   *systray.MenuItem
-	mQuit      *systray.MenuItem
-	onViewLogs func()
-	onWebsite  func()
-	onQuit     func()
-	readyChan  chan struct{}
+	mu            sync.Mutex
+	version       string
+	backend       string
+	threshold     int
+	categoryNames []string
+	status        status
+	mStats        *systray.MenuItem
+	mLatest       *systray.MenuItem
+	mCategories   *systray.MenuItem
+	mCatItems     map[string]*systray.MenuItem
+	mViewLogs     *systray.MenuItem
+	mAbout        *systray.MenuItem
+	mWebsite      *systray.MenuItem
+	mQuit         *systray.MenuItem
+	onViewLogs    func()
+	onWebsite     func()
+	onQuit        func()
+	readyChan     chan struct{}
 }
 
 // New initializes a Tray instance with callbacks for log viewing, Website URL opening, and user-triggered exit.
-func New(version string, backend string, threshold int, onViewLogs func(), onWebsite func(), onQuit func()) *Tray {
+func New(version string, backend string, threshold int, categoryNames []string, onViewLogs func(), onWebsite func(), onQuit func()) *Tray {
+	sortedCats := make([]string, len(categoryNames))
+	copy(sortedCats, categoryNames)
+	sort.Strings(sortedCats)
+
 	return &Tray{
-		version:    version,
-		backend:    backend,
-		threshold:  threshold,
-		onViewLogs: onViewLogs,
-		onWebsite:  onWebsite,
-		onQuit:     onQuit,
-		readyChan:  make(chan struct{}),
+		version:       version,
+		backend:       backend,
+		threshold:     threshold,
+		categoryNames: sortedCats,
+		mCatItems:     make(map[string]*systray.MenuItem),
+		onViewLogs:    onViewLogs,
+		onWebsite:     onWebsite,
+		onQuit:        onQuit,
+		readyChan:     make(chan struct{}),
 	}
 }
 
@@ -70,11 +81,24 @@ func (t *Tray) Init() {
 	t.mu.Lock()
 	t.status = statusPassive
 
-	t.mStats = systray.AddMenuItem("Errors (Last 60s): 0", "Count of kernel errors in the rolling window")
+	t.mStats = systray.AddMenuItem("Errors (Recent): 0", "Count of kernel errors in the rolling window")
 	t.mStats.Disable()
 
 	t.mLatest = systray.AddMenuItem("Latest: None", "Most recent kernel error snippet")
 	t.mLatest.Disable()
+
+	// Pre-allocate category menu items if categories are configured
+	if len(t.categoryNames) > 0 {
+		t.mCategories = systray.AddMenuItem("Categories", "Error breakdown by category")
+		t.mCategories.Hide()
+
+		for _, cat := range t.categoryNames {
+			item := t.mCategories.AddSubMenuItem(fmt.Sprintf("%s: 0", cat), fmt.Sprintf("Active %s errors", cat))
+			item.Disable()
+			item.Hide()
+			t.mCatItems[cat] = item
+		}
+	}
 
 	systray.AddSeparator()
 
@@ -191,9 +215,14 @@ func (t *Tray) RequestAttention() {
 	t.status = statusNeedsAttention
 }
 
-// Update dynamically refreshes the menu items and controls tray visibility,
-// warning icons, and attention status based on error count and threshold.
+// Update dynamically refreshes standard metrics (backward-compatibility wrapper).
 func (t *Tray) Update(count int, latest string) {
+	t.UpdateWithCategories(count, latest, nil, false, "", "")
+}
+
+// UpdateWithCategories dynamically refreshes menu items, category breakdowns,
+// dynamic priority tooltips, and tray visibility without reallocating D-Bus menu items.
+func (t *Tray) UpdateWithCategories(count int, latest string, categoryCounts map[string]int, anyAlerting bool, alertCat string, alertUrgency string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -206,14 +235,57 @@ func (t *Tray) Update(count int, latest string) {
 		truncated = truncated[:37] + "..."
 	}
 
-	t.mStats.SetTitle(fmt.Sprintf("Errors (Last 60s): %d", count))
+	t.mStats.SetTitle(fmt.Sprintf("Errors (Recent): %d", count))
 	t.mLatest.SetTitle(fmt.Sprintf("Latest: %s", truncated))
+
+	// Refresh category items in place
+	if t.mCategories != nil {
+		var hasActiveCat bool
+		for cat, item := range t.mCatItems {
+			cnt := categoryCounts[cat]
+			if cnt > 0 {
+				item.SetTitle(fmt.Sprintf("%s: %d", cat, cnt))
+				item.Show()
+				hasActiveCat = true
+			} else {
+				item.Hide()
+			}
+		}
+
+		if hasActiveCat {
+			t.mCategories.Show()
+		} else {
+			t.mCategories.Hide()
+		}
+	}
+
+	// Update dynamic tooltip with active priority and category
+	switch {
+	case anyAlerting:
+		label := alertCat
+		if label == "" {
+			label = "global"
+		}
+		urgencyLabel := strings.ToUpper(alertUrgency)
+		if urgencyLabel == "" {
+			urgencyLabel = "ALERT"
+		}
+		systray.SetTooltip(fmt.Sprintf("ScurryTail: %s [%s]\n%d active errors in rolling window\nLatest: %s",
+			urgencyLabel, label, count, truncated))
+
+	case count > 0:
+		systray.SetTooltip(fmt.Sprintf("ScurryTail: ACTIVE\n%d active errors in rolling window\nLatest: %s",
+			count, truncated))
+
+	default:
+		systray.SetTooltip("ScurryTail\nNimble kernel log watcher & error monitor")
+	}
 
 	switch {
 	case count == 0:
 		t.setStatusLocked(statusPassive)
 
-	case t.threshold > 0 && count >= t.threshold:
+	case anyAlerting || (t.threshold > 0 && count >= t.threshold):
 		t.setStatusLocked(statusNeedsAttention)
 
 	default:

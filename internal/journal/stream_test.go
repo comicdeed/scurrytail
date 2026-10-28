@@ -38,12 +38,12 @@ func TestCleanKernelMessage(t *testing.T) {
 		{
 			name:     "dmesg uptime timestamp format",
 			input:    "[100028.848625] kvm: ignored rdmsr: 0x492 data 0x0",
-			expected: "ignored rdmsr: 0x492 data 0x0",
+			expected: "kvm: ignored rdmsr: 0x492 data 0x0",
 		},
 		{
 			name:     "dmesg ISO timestamp format",
 			input:    "2026-10-21T01:38:37,848625+01:00 kvm: ignored rdmsr: 0x492 data 0x0",
-			expected: "ignored rdmsr: 0x492 data 0x0",
+			expected: "kvm: ignored rdmsr: 0x492 data 0x0",
 		},
 	}
 

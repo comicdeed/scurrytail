@@ -71,25 +71,17 @@ func CleanKernelMessage(raw string) string {
 		return strings.TrimSpace(line[idx+len("]: "):])
 	}
 
-	// Case 3: dmesg uptime timestamp format ("[12345.678901] <msg>")
+	// Case 3: dmesg uptime timestamp format ("[12345.678901] <subsystem>: <msg>")
 	if strings.HasPrefix(line, "[") {
 		if closeIdx := strings.Index(line, "] "); closeIdx != -1 {
-			remainder := strings.TrimSpace(line[closeIdx+2:])
-			if colIdx := strings.Index(remainder, ": "); colIdx != -1 {
-				return strings.TrimSpace(remainder[colIdx+2:])
-			}
-			return remainder
+			return strings.TrimSpace(line[closeIdx+2:])
 		}
 	}
 
 	// Case 4: dmesg ISO timestamp format ("2026-10-21T01:38:37,848625+01:00 <subsystem>: <msg>")
 	if len(line) > 25 && line[10] == 'T' {
 		if spIdx := strings.Index(line, " "); spIdx != -1 {
-			remainder := strings.TrimSpace(line[spIdx+1:])
-			if colIdx := strings.Index(remainder, ": "); colIdx != -1 {
-				return strings.TrimSpace(remainder[colIdx+2:])
-			}
-			return remainder
+			return strings.TrimSpace(line[spIdx+1:])
 		}
 	}
 

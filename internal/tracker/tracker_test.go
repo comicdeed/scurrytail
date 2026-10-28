@@ -3,6 +3,8 @@ package tracker
 import (
 	"testing"
 	"time"
+
+	"github.com/comicdeed/scurrytail/internal/config"
 )
 
 func TestTracker_Prune(t *testing.T) {
@@ -81,5 +83,206 @@ func TestTracker_ShouldAlert_And_Cooldown(t *testing.T) {
 	shouldAlert, count, _ = tr.ShouldAlert(baseTime.Add(60 * time.Second))
 	if !shouldAlert {
 		t.Fatalf("expected alert to fire after cooldown elapsed (count %d)", count)
+	}
+}
+
+func TestMultiTracker_ClassifiedAndIgnored(t *testing.T) {
+	cfg := config.Config{
+		Threshold: 5,
+		Window:    60 * time.Second,
+		Cooldown:  45 * time.Second,
+		Ignore: []string{
+			"ACPI:.*Method _OSI failed",
+		},
+		Categories: map[string]config.CategoryConfig{
+			"disk": {
+				Threshold: 1,
+				Window:    5 * time.Minute,
+				Cooldown:  1 * time.Minute,
+				Urgency:   "critical",
+				Patterns: []string{
+					"EXT4-fs error",
+					"nvme.*status: 0x",
+				},
+			},
+			"wifi": {
+				Threshold: 3,
+				Window:    2 * time.Minute,
+				Cooldown:  30 * time.Second,
+				Urgency:   "low",
+				Patterns: []string{
+					"iwlwifi.*",
+				},
+			},
+		},
+	}
+
+	mt, err := NewMultiTracker(cfg)
+	if err != nil {
+		t.Fatalf("failed to create MultiTracker: %v", err)
+	}
+
+	now := time.Now()
+
+	// 1. Ignored error: should be dropped immediately
+	res := mt.Record("ACPI: Method _OSI failed on device", now)
+	if !res.Ignored {
+		t.Fatalf("expected error to be ignored")
+	}
+	prune := mt.Prune(now)
+	if prune.TotalCount != 0 {
+		t.Fatalf("expected TotalCount 0 after ignored error, got %d", prune.TotalCount)
+	}
+
+	// 2. Classified error (disk): threshold is 1, should alert immediately
+	res = mt.Record("EXT4-fs error (device sda1): bad block", now)
+	if res.Ignored {
+		t.Fatalf("unexpected ignore for disk error")
+	}
+	if res.Category != "disk" {
+		t.Fatalf("expected category 'disk', got %q", res.Category)
+	}
+	if !res.ShouldAlert {
+		t.Fatalf("expected disk error to alert with threshold 1")
+	}
+	if res.Urgency != "critical" {
+		t.Fatalf("expected critical urgency, got %s", res.Urgency)
+	}
+	if res.Count != 1 {
+		t.Fatalf("unexpected disk count: got %d, expected 1", res.Count)
+	}
+	prune = mt.Prune(now)
+	if prune.TotalCount != 1 || prune.CategoryCounts["disk"] != 1 {
+		t.Fatalf("unexpected counts: total=%d, disk=%d", prune.TotalCount, prune.CategoryCounts["disk"])
+	}
+
+	// 3. Unclassified error: should route to unclassified (not disk)
+	res = mt.Record("usb 1-1: device descriptor read/64, error -110", now)
+	if res.Category != "" {
+		t.Fatalf("expected empty category for unclassified error, got %q", res.Category)
+	}
+	if res.ShouldAlert {
+		t.Fatalf("expected unclassified error not to alert (count 1 < threshold 5)")
+	}
+	prune = mt.Prune(now)
+	if prune.TotalCount != 2 {
+		t.Fatalf("expected TotalCount 2, got %d", prune.TotalCount)
+	}
+	// Disk count should still be 1, not 2
+	if prune.CategoryCounts["disk"] != 1 {
+		t.Fatalf("disk category count corrupted by unclassified error: got %d", prune.CategoryCounts["disk"])
+	}
+}
+
+func TestMultiTracker_BoundedMemory(t *testing.T) {
+	cfg := config.Config{
+		Threshold: 5,
+		Window:    60 * time.Second,
+		Cooldown:  45 * time.Second,
+	}
+
+	mt, err := NewMultiTracker(cfg)
+	if err != nil {
+		t.Fatalf("failed to create MultiTracker: %v", err)
+	}
+
+	now := time.Now()
+	// Simulate flood of 10,000 errors
+	for i := 0; i < 10000; i++ {
+		mt.Record("flood error", now)
+	}
+
+	prune := mt.Prune(now)
+	// Bounded capacity clamps retained timestamps to maxCapacity (128 for threshold 5)
+	if prune.TotalCount > 128 {
+		t.Fatalf("expected bounded count <= 128, got %d", prune.TotalCount)
+	}
+}
+
+func TestMultiTracker_PriorityLatching(t *testing.T) {
+	cfg := config.Config{
+		Threshold: 5,
+		Window:    60 * time.Second,
+		Cooldown:  45 * time.Second,
+		Categories: map[string]config.CategoryConfig{
+			"storage": {
+				Threshold: 1,
+				Window:    5 * time.Minute,
+				Cooldown:  1 * time.Minute,
+				Urgency:   "critical",
+				Patterns:  []string{"EXT4-fs.*"},
+			},
+			"dock": {
+				Threshold: 2,
+				Window:    30 * time.Second,
+				Cooldown:  10 * time.Second,
+				Urgency:   "low",
+				Patterns:  []string{"hub.*"},
+			},
+		},
+	}
+
+	mt, err := NewMultiTracker(cfg)
+	if err != nil {
+		t.Fatalf("failed to create MultiTracker: %v", err)
+	}
+
+	baseTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	// 1. Critical storage error occurs at t = 0
+	mt.Record("EXT4-fs (sda1): I/O error while writing superblock", baseTime)
+	prune := mt.Prune(baseTime)
+
+	if !prune.AnyAlerting {
+		t.Fatalf("expected AnyAlerting true for critical storage error")
+	}
+	if prune.AlertCategory != "storage" {
+		t.Errorf("expected AlertCategory 'storage', got %q", prune.AlertCategory)
+	}
+	if prune.AlertUrgency != "critical" {
+		t.Errorf("expected AlertUrgency 'critical', got %q", prune.AlertUrgency)
+	}
+	if prune.Latest != "EXT4-fs (sda1): I/O error while writing superblock" {
+		t.Errorf("unexpected Latest: %s", prune.Latest)
+	}
+
+	// 2. Low-priority dock burst occurs at t = 10s (exceeds dock threshold 2)
+	mt.Record("hub 7-1: hub_ext_port_status failed", baseTime.Add(10*time.Second))
+	mt.Record("hub 7-1: hub_ext_port_status failed", baseTime.Add(11*time.Second))
+
+	prune = mt.Prune(baseTime.Add(12 * time.Second))
+	if !prune.AnyAlerting {
+		t.Fatalf("expected AnyAlerting true")
+	}
+	// Crucial check: Storage is critical, dock is low. Storage must retain priority!
+	if prune.AlertCategory != "storage" {
+		t.Errorf("expected AlertCategory to stay 'storage', got %q", prune.AlertCategory)
+	}
+	if prune.AlertUrgency != "critical" {
+		t.Errorf("expected AlertUrgency to stay 'critical', got %q", prune.AlertUrgency)
+	}
+	if prune.Latest != "EXT4-fs (sda1): I/O error while writing superblock" {
+		t.Errorf("expected Latest to stay latched to critical error, got %q", prune.Latest)
+	}
+
+	// 3. At t = 45s: dock 30s window has expired, but storage 5m is still within window
+	prune = mt.Prune(baseTime.Add(45 * time.Second))
+	if !prune.AnyAlerting {
+		t.Fatalf("expected AnyAlerting to remain true for active storage window")
+	}
+	if prune.CategoryCounts["dock"] != 0 {
+		t.Errorf("expected dock count 0 after window expiry, got %d", prune.CategoryCounts["dock"])
+	}
+	if prune.CategoryCounts["storage"] != 1 {
+		t.Errorf("expected storage count 1, got %d", prune.CategoryCounts["storage"])
+	}
+
+	// 4. At t = 6m: storage 5m window has also expired
+	prune = mt.Prune(baseTime.Add(6 * time.Minute))
+	if prune.AnyAlerting {
+		t.Errorf("expected AnyAlerting false after all windows expired")
+	}
+	if prune.TotalCount != 0 {
+		t.Errorf("expected TotalCount 0, got %d", prune.TotalCount)
 	}
 }

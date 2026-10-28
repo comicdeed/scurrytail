@@ -11,10 +11,15 @@
 | State | Status | Panel / Tray UI | Desktop Popups | Interactions |
 | :--- | :--- | :--- | :--- | :--- |
 | **Hidden (Default)** | Passive | Icon is completely hidden (no panel space used) | Silent; daemon listens in background | None (item is invisible) |
-| **Visible (Warning)** | Active | Amber warning icon emerges in panel | Silent if error rate is below threshold | Hover tooltip shows error count; menu provides diagnostics and log viewer |
+| **Visible (Warning)** | Active | Amber warning icon emerges in panel | Silent if error rate is below threshold | Hover tooltip shows active error count; menu provides diagnostics and log viewer |
 | **Attention** | NeedsAttention | Desktop panel highlights, flashes, or pulses the icon | Desktop notification dispatched | Click or menu open acknowledges and clears attention back to Active |
 
-The icon automatically disappears once the rolling window clears with no new errors.
+Hovering over the tray icon reveals a **dynamic priority tooltip**:
+* **Alerting**: `ScurryTail: CRITICAL [storage] (1 error in 5m)`
+* **Active**: `ScurryTail: ACTIVE (3 active errors in rolling window)`
+* **Passive**: `ScurryTail: Nimble kernel log watcher & error monitor`
+
+The icon automatically disappears once all rolling windows clear with no active errors.
 
 ### How the Icon Behaves
 
@@ -29,12 +34,13 @@ stateDiagram-v2
 
     state "Warning (Active)" as Active
     Active : UI — Amber warning icon visible in panel
-    Active : Tooltip — Error count and rolling window duration
-    Active : Menu — Clickable diagnostics and log viewer launcher
+    Active : Tooltip — Active error count and latest message snippet
+    Active : Menu — Clickable diagnostics, categories, and log viewer launcher
 
     state "Attention (NeedsAttention)" as NeedsAttention
     NeedsAttention : UI — Desktop panel highlights, flashes, or pulses icon
-    NeedsAttention : Popups — Desktop notification alert dispatched
+    NeedsAttention : Tooltip — Displays highest active urgency and alerting category
+    NeedsAttention : Popups — Category-tagged desktop notification dispatched
     NeedsAttention : Interactions — Click or menu open acknowledges attention
 
     Passive --> Active : Error recorded (1 <= count < threshold)
@@ -45,8 +51,8 @@ stateDiagram-v2
     NeedsAttention --> Active : User clicks icon or opens menu (acknowledged)
     NeedsAttention --> Active : Error rate subsides (count < threshold)
 
-    Active --> Passive : Rolling window clears (count == 0)
-    NeedsAttention --> Passive : Rolling window clears (count == 0)
+    Active --> Passive : All rolling windows clear (count == 0)
+    NeedsAttention --> Passive : All rolling windows clear (count == 0)
 ```
 
 ---
@@ -56,21 +62,26 @@ stateDiagram-v2
 Click the tray icon to view quick diagnostics:
 
 ```text
-Errors (Last 60s): 3
-Latest: usb 1-1: device descriptor read/64, error -110
+Errors (Recent): 4
+Latest: EXT4-fs (sda1): I/O error while writing superblock
+Categories                                             ▶
+  ├─ storage: 1
+  └─ wifi: 3
 ────────────────────────────────────────────────────────
 View Kernel Logs (journalctl)
 ────────────────────────────────────────────────────────
 About                                                  ▶
   ├─ ScurryTail v0.3.0
-  ├─ A nimble Linux system tray applet for tailing fast-moving kernel logs
   ├─ ──────────────────────────────────────────────────
   └─ Website
 Quit
 ```
 
-* **Errors (Last 60s)**: Total number of kernel errors recorded in the sliding window.
+* **Errors (Recent)**: Total active kernel errors across all configured categories and unclassified errors.
 * **Latest**: The message snippet of the most recent error.
+  > [!TIP]
+  > **Priority Latching**: If a high-priority alert (such as `critical` storage degradation) is actively alerting, lower-urgency background events (such as USB or Wi-Fi blips) **cannot overwrite** the critical error message in `Latest`.
+* **Categories**: Dynamically displays counts for active categories. Automatically hidden when no category errors are present.
 * **View Kernel Logs**: Opens your default terminal (Ghostty, Konsole, GNOME Terminal, etc.) streaming live kernel logs with the last 50 lines displayed.
 * **About $\rightarrow$ Website**: Opens the project repository in your default browser.
 * **Quit**: Exits the monitor.
@@ -79,10 +90,16 @@ Quit
 
 ## 🔔 Desktop Notifications
 
-`ScurryTail` avoids desktop spam:
-* It stays silent during occasional, isolated errors.
-* It sends a notification popup only when error frequency exceeds your threshold (default: 5 errors in 60 seconds).
-* An automatic 45-second cooldown suppresses follow-up popups during error bursts while the tray menu continues updating in real time.
+`ScurryTail` avoids desktop spam while ensuring critical hardware alerts are never missed:
+* **Silent by Default**: Stays silent during occasional, isolated errors below threshold.
+* **Category-Tagged Alerts**: Identifies which subsystem breached its threshold:
+  * `⚠️ High Kernel Error Rate [storage]`
+  * `Detected 1 storage errors in the last 5m0s! Latest: EXT4-fs (sda1): I/O error...`
+* **Configurable Urgency**:
+  * **`critical`** (`storage`, `gpu`): Emitted with D-Bus urgency `2` and persistent expiration (remains visible on screen until dismissed by the user).
+  * **`normal`** (`usb`, unclassified): Standard desktop notification (8 seconds).
+  * **`low`** (`dock`, `wifi`): Non-intrusive transient notification (5 seconds).
+* **Burst Cooldown**: Per-category cooldowns suppress follow-up popups during sustained error bursts while the tray menu continues updating in real time.
 
 ---
 
@@ -98,25 +115,149 @@ Create **`~/.config/scurrytail/config.yaml`**:
 # Kernel streaming backend: auto | journalctl | dmesg
 backend: auto
 
-# Number of errors in the rolling window required to trigger a notification
+# Global alert threshold (errors per window required for notification)
 threshold: 5
 
-# Rolling evaluation time window
+# Global rolling evaluation time window
 window: 60s
 
-# Minimum cooldown between alert popups
+# Global minimum cooldown between alert popups
 cooldown: 45s
 
 # Custom command to open when clicking "View Kernel Logs" (one-line array format)
 # If empty, automatically matches active backend (journalctl or dmesg)
 viewer_cmd: ["ghostty", "-e", "journalctl", "-k", "-f", "-n", "50"]
+
+# Benign errors to completely suppress (no tray count, no alerts)
+ignore:
+  - "ACPI:.*Method _OSI failed"
+  - "thermal thermal_zone.*failed to read out thermal zone"
+
+# Subsystem error categories
+# Classified errors count towards their category and do NOT increment the global count
+categories:
+  disk:
+    threshold: 1          # Alert immediately on storage degradation
+    window: 5m
+    cooldown: 1m
+    urgency: critical     # Persists on desktop until dismissed
+    patterns:
+      - "EXT4-fs error"
+      - "BTRFS: error"
+      - "blk_update_request: I/O error"
+      - "nvme.*status: 0x"
+
+  wifi:
+    threshold: 8          # Tolerant to frequent roaming re-auths
+    window: 2m
+    cooldown: 3m
+    urgency: low
+    patterns:
+      - "iwlwifi.*"
+      - "ath10k.*"
 ```
 
-Configuration values are loaded in order:
-$$\text{Built-in Defaults} \longrightarrow \text{Config File} \longrightarrow \text{Environment Variables} \longrightarrow \text{Command Line Flags}$$
+Configuration values are loaded in hierarchical order:
+$$\text{Built-in Defaults} \longrightarrow \text{System Config} \longrightarrow \text{System conf.d/} \longrightarrow \text{User Config} \longrightarrow \text{User conf.d/} \longrightarrow \text{Environment Variables} \longrightarrow \text{CLI Flags}$$
 
 > [!NOTE]
-> For smooth upgrades, `ScurryTail` also checks legacy `~/.config/dmesg-watch/config.yaml` if `~/.config/scurrytail/config.yaml` is not present.
+> For smooth upgrades, `ScurryTail` also checks legacy `~/.config/dmesg-watch/` if `~/.config/scurrytail/` is not present.
+
+---
+
+## 🧩 Modular Configuration & Drop-ins (`conf.d/`)
+
+ScurryTail supports modular drop-in YAML files in `conf.d/` directories:
+* **System-wide drop-ins**: `/etc/scurrytail/conf.d/*.yaml`
+* **Per-user drop-ins**: `~/.config/scurrytail/conf.d/*.yaml`
+
+Files within `conf.d/` load in alphabetical order (e.g. `00-silence.yaml`, `10-storage.yaml`, `20-gpu.yaml`). Configuration layers merge automatically:
+- Scalar options (`threshold`, `window`, `backend`) override previous layers if explicitly defined.
+- `ignore` patterns append across layers.
+- Categories merge by name (properties override; patterns append and deduplicate).
+
+### 1. NixOS & Home Manager Multi-Host Setup
+Maintain a common baseline across all your flake machines while declaring host-specific hardware drop-ins on particular machines:
+
+**Common Baseline (`modules/home/scurrytail.nix`):**
+```nix
+xdg.configFile."scurrytail/config.yaml".text = ''
+  threshold: 5
+  window: 60s
+  cooldown: 45s
+  ignore:
+    - "ACPI:.*Method _OSI failed"
+'';
+```
+
+**Laptop Flake Host (`hosts/laptop/default.nix`):**
+```nix
+# Wi-Fi driver tolerance for mobile hardware
+xdg.configFile."scurrytail/conf.d/10-laptop.yaml".text = ''
+  categories:
+    wifi:
+      threshold: 8
+      window: 2m
+      patterns:
+        - "iwlwifi.*"
+'';
+```
+
+**Workstation Flake Host (`hosts/workstation/default.nix`):**
+```nix
+# GPU crash and driver reset monitoring
+xdg.configFile."scurrytail/conf.d/20-gpu.yaml".text = ''
+  categories:
+    gpu:
+      threshold: 1
+      urgency: critical
+      patterns:
+        - "NVRM: GPU at.*has fallen off the bus"
+        - "Xid \\(PCI:.*\\):"
+        - "amdgpu.*ring.*timeout"
+'';
+```
+
+---
+
+### 2. Desktop Hardware Recipes
+
+#### Storage Integrity (`~/.config/scurrytail/conf.d/10-storage.yaml`)
+Trigger instant critical desktop alerts on drive faults:
+```yaml
+categories:
+  disk:
+    threshold: 1
+    window: 5m
+    cooldown: 1m
+    urgency: critical
+    patterns:
+      - "EXT4-fs error"
+      - "BTRFS: error"
+      - "blk_update_request: I/O error"
+      - "nvme.*status: 0x"
+      - "zfs: checksum"
+```
+
+#### Silence Benign Noise (`~/.config/scurrytail/conf.d/00-silence.yaml`)
+Completely suppress known harmless BIOS or hardware chatter:
+```yaml
+ignore:
+  - "ACPI:.*Method _OSI failed"
+  - "Bluetooth: hci0: Malformed frame"
+  - "thermal thermal_zone.*failed to read out thermal zone"
+```
+
+#### Ad-Hoc Driver Troubleshooting (`~/.config/scurrytail/conf.d/99-debug.yaml`)
+Temporarily monitor a flaky USB or PCIe peripheral during development:
+```yaml
+categories:
+  debug_usb:
+    threshold: 1
+    patterns:
+      - "usb 1-1:.*"
+```
+*(Delete or rename to `.yaml.disabled` once troubleshooting is complete).*
 
 ---
 

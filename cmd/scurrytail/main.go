@@ -26,7 +26,7 @@ const (
 
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.3.0-beta.12"
+	version = "v0.3.0-beta.13"
 )
 
 func main() {
@@ -67,19 +67,27 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
-	track := tracker.New(tracker.Config{
-		Window:    cfg.Window,
-		Threshold: cfg.Threshold,
-		Cooldown:  cfg.Cooldown,
-	})
+	mt, err := tracker.NewMultiTracker(cfg)
+	if err != nil {
+		log.Fatalf("Fatal: %v", err)
+	}
 
 	notifier := notify.New("ScurryTail")
+
+	catNames := make([]string, 0, len(cfg.Categories))
+	for name, cat := range cfg.Categories {
+		if cat.Ignore {
+			continue
+		}
+		catNames = append(catNames, name)
+	}
 
 	var uiTray *tray.Tray
 	uiTray = tray.New(
 		version,
 		selectedBackend,
 		cfg.Threshold,
+		catNames,
 		func() {
 			if err := launcher.LaunchArgs(activeViewerArgs); err != nil {
 				log.Printf("Failed to open kernel log viewer: %v", err)
@@ -103,6 +111,11 @@ func main() {
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 
+		// Throttle tray D-Bus updates to at most 4Hz (every 250ms) during log storms
+		trayCoalesceTicker := time.NewTicker(250 * time.Millisecond)
+		defer trayCoalesceTicker.Stop()
+		var pendingTrayUpdate bool
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -124,24 +137,41 @@ func main() {
 					return
 				}
 				now := time.Now()
-				track.Record(msg, now)
+				res := mt.Record(msg, now)
+				if res.Ignored {
+					continue
+				}
 
-				shouldAlert, count, latest := track.ShouldAlert(now)
-				uiTray.Update(count, latest)
-
-				if shouldAlert {
+				if res.ShouldAlert {
 					uiTray.RequestAttention()
-					summary := "⚠️ High Kernel Error Rate"
-					body := fmt.Sprintf("Detected %d kernel errors in the last %s!\nLatest: %s",
-						count, cfg.Window.String(), latest)
-					if err := notifier.Send(summary, body); err != nil {
+					var summary, body string
+					if res.Category != "" {
+						summary = fmt.Sprintf("⚠️ High Kernel Error Rate [%s]", res.Category)
+						body = fmt.Sprintf("Detected %d %s errors in the last %s!\nLatest: %s",
+							res.Count, res.Category, res.Window.String(), res.Latest)
+					} else {
+						summary = "⚠️ High Kernel Error Rate"
+						body = fmt.Sprintf("Detected %d kernel errors in the last %s!\nLatest: %s",
+							res.Count, res.Window.String(), res.Latest)
+					}
+					if err := notifier.SendWithUrgency(summary, body, res.Urgency); err != nil {
 						log.Printf("Failed to deliver notification: %v", err)
 					}
 				}
 
+				pendingTrayUpdate = true
+
+			case now := <-trayCoalesceTicker.C:
+				if pendingTrayUpdate {
+					prune := mt.Prune(now)
+					uiTray.UpdateWithCategories(prune.TotalCount, prune.Latest, prune.CategoryCounts, prune.AnyAlerting, prune.AlertCategory, prune.AlertUrgency)
+					pendingTrayUpdate = false
+				}
+
 			case now := <-ticker.C:
-				count, latest := track.Prune(now)
-				uiTray.Update(count, latest)
+				prune := mt.Prune(now)
+				uiTray.UpdateWithCategories(prune.TotalCount, prune.Latest, prune.CategoryCounts, prune.AnyAlerting, prune.AlertCategory, prune.AlertUrgency)
+				pendingTrayUpdate = false
 			}
 		}
 	}()

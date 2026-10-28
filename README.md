@@ -16,7 +16,7 @@ Zero GUI platform bloat, ~15MB memory footprint, intelligent burst flood dampeni
 
 * 🪶 **Featherweight**: Pure Go static binary. No Qt, GTK, or Electron platform baggage. Communicates directly over D-Bus and idles at ~15MB RSS.
 * 🐿️ **Chase the Tail**: Click the tray icon to inspect error counts, or jump instantly into live streaming logs inside your default terminal (Ghostty, Konsole, GNOME Terminal, etc.).
-* 🔇 **Smart Flood Protection**: Ignores isolated transient blips. Only notifies when error frequency crosses your threshold, with an automatic cooldown to prevent notification spam.
+* 🔇 **Smart Flood & Category Protection**: Classify subsystem errors with custom thresholds, silence benign kernel noise, and prevent alert fatigue via rate dampening.
 * 🔌 **Dual Streaming Engines**: Streams from `journalctl` by default, with automatic fallback or direct selection (`-backend=dmesg`) on non-systemd desktop distributions (Alpine, Void, Artix).
 * 🖥️ **Universal Desktop Support**: Native StatusNotifierItem (SNI) tray integration for KDE Plasma, GNOME, Sway, Waybar, and Hyprland.
 
