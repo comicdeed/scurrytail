@@ -367,6 +367,8 @@ func MergeYAMLLayers(paths []string) (Config, []byte, error) {
 		Window    string     `yaml:"window"`
 		Cooldown  string     `yaml:"cooldown"`
 		ViewerCmd StringList `yaml:"viewer_cmd,omitempty"`
+		LogLevel  string     `yaml:"log_level,omitempty"`
+		LogTarget string     `yaml:"log_target,omitempty"`
 	}
 
 	overlay := scalarOverlay{
@@ -375,6 +377,8 @@ func MergeYAMLLayers(paths []string) (Config, []byte, error) {
 		Window:    merged.Window.String(),
 		Cooldown:  merged.Cooldown.String(),
 		ViewerCmd: merged.ViewerCmd,
+		LogLevel:  merged.LogLevel,
+		LogTarget: merged.LogTarget,
 	}
 
 	outYAML, err := goyaml.Marshal(overlay)
@@ -434,15 +438,6 @@ func ValidatePatterns(cfg Config) error {
 	}
 
 	return nil
-}
-
-// FindConfigFile locates the primary configuration file (backward compatibility helper).
-func FindConfigFile(explicitPath string) string {
-	files, err := DiscoverConfigFiles(explicitPath)
-	if err != nil || len(files) == 0 {
-		return ""
-	}
-	return files[0]
 }
 
 func findExplicitConfigFile(args []string) string {

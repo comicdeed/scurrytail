@@ -23,9 +23,9 @@ fi
 
 if [ "$ACTION" = "install" ]; then
     echo "==> Verifying system prerequisites..."
-    if ! command -v journalctl >/dev/null 2>&1; then
-        echo "Error: 'journalctl' was not found on this system." >&2
-        echo "scurrytail requires systemd-journald to stream kernel errors." >&2
+    if ! command -v journalctl >/dev/null 2>&1 && ! command -v dmesg >/dev/null 2>&1; then
+        echo "Error: Neither 'journalctl' nor 'dmesg' was found on this system." >&2
+        echo "scurrytail requires systemd-journald or dmesg to stream kernel errors." >&2
         exit 1
     fi
 

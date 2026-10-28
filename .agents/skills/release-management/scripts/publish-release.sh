@@ -67,6 +67,22 @@ if ! grep -q "## \[$TAG\]" "$CHANGELOG"; then
   exit 1
 fi
 
+# Check that nix/package.nix declares matching version and ldflags
+NIX_PKG="nix/package.nix"
+BARE_VERSION="${TAG#v}"
+if [[ -f "$NIX_PKG" ]]; then
+  if ! grep -q "version = \"$BARE_VERSION\"" "$NIX_PKG"; then
+    echo "Error: Version mismatch! $NIX_PKG does not declare: version = \"$BARE_VERSION\"" >&2
+    echo "Please update $NIX_PKG before running this release script." >&2
+    exit 1
+  fi
+  if ! grep -q "\"-X main.version=$TAG\"" "$NIX_PKG"; then
+    echo "Error: Ldflags version mismatch! $NIX_PKG does not declare: \"-X main.version=$TAG\"" >&2
+    echo "Please update $NIX_PKG before running this release script." >&2
+    exit 1
+  fi
+fi
+
 # Check that git tag does not already exist
 if git rev-parse "$TAG" >/dev/null 2>&1; then
   echo "Error: Git tag '$TAG' already exists locally or remotely." >&2

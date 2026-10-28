@@ -341,4 +341,26 @@ func TestLoad_LoggingOptions(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error for invalid log target, got nil")
 	}
+
+	// Test loading from YAML file
+	tmpDir := t.TempDir()
+	yamlFile := filepath.Join(tmpDir, "config.yaml")
+	yamlContent := `
+log_level: debug
+log_target: stderr
+`
+	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("failed to write yaml: %v", err)
+	}
+
+	cfgYAML, _, _, err := Load("v0.1.0", []string{"-c", yamlFile})
+	if err != nil {
+		t.Fatalf("failed to load config from yaml: %v", err)
+	}
+	if cfgYAML.LogLevel != "debug" {
+		t.Errorf("expected YAML log_level debug, got %s", cfgYAML.LogLevel)
+	}
+	if cfgYAML.LogTarget != "stderr" {
+		t.Errorf("expected YAML log_target stderr, got %s", cfgYAML.LogTarget)
+	}
 }

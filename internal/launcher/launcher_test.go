@@ -96,11 +96,43 @@ func TestBuildCommand(t *testing.T) {
 	})
 }
 
-func TestOpenURL_Empty(t *testing.T) {
-	if err := OpenURL(""); err == nil {
-		t.Errorf("expected error for empty URL, got nil")
+func TestOpenURL_Validation(t *testing.T) {
+	tests := []struct {
+		url     string
+		wantErr bool
+	}{
+		{"", true},
+		{"   ", true},
+		{"file:///etc/passwd", true},
+		{"--help", true},
+		{"javascript:alert(1)", true},
+		{"ftp://example.com", true},
 	}
-	if err := OpenURL("   "); err == nil {
-		t.Errorf("expected error for whitespace URL, got nil")
+
+	for _, tt := range tests {
+		err := OpenURL(tt.url)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("OpenURL(%q) err = %v, wantErr = %v", tt.url, err, tt.wantErr)
+		}
+	}
+}
+
+func TestPrepareRunnerScript_Escaping(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+
+	scriptPath, err := PrepareRunnerScript([]string{"journalctl", "-k", "--grep=foo bar", "semi;colon"})
+	if err != nil {
+		t.Fatalf("PrepareRunnerScript failed: %v", err)
+	}
+
+	data, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatalf("failed to read generated script: %v", err)
+	}
+
+	expectedExec := "exec journalctl -k '--grep=foo bar' 'semi;colon'\n"
+	if !strings.Contains(string(data), expectedExec) {
+		t.Errorf("expected script to contain %q, got:\n%s", expectedExec, string(data))
 	}
 }

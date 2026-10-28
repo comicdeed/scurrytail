@@ -45,6 +45,16 @@ func TestCleanKernelMessage(t *testing.T) {
 			input:    "2026-10-21T01:38:37,848625+01:00 kvm: ignored rdmsr: 0x492 data 0x0",
 			expected: "kvm: ignored rdmsr: 0x492 data 0x0",
 		},
+		{
+			name:     "dmesg ISO timestamp with kernel brackets",
+			input:    "2026-10-21T01:38:37,848625+01:00 [drm:amdgpu_dm_atomic_commit_tail [amdgpu]]: *ERROR* atomic commit failed",
+			expected: "[drm:amdgpu_dm_atomic_commit_tail [amdgpu]]: *ERROR* atomic commit failed",
+		},
+		{
+			name:     "dmesg uptime timestamp with bracketed subsystem",
+			input:    "[100028.848625] [drm:func [mod]]: *ERROR* failed",
+			expected: "[drm:func [mod]]: *ERROR* failed",
+		},
 	}
 
 	for _, tc := range tests {

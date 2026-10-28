@@ -174,13 +174,6 @@ func (t *Tray) Init() {
 	}()
 }
 
-// CurrentStatus returns the current operational Status.
-func (t *Tray) CurrentStatus() Status {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.status
-}
-
 // setStatusLocked handles transitions between SNI statuses and manages icons.
 // Caller must hold t.mu.
 func (t *Tray) setStatusLocked(target Status) {
@@ -209,20 +202,6 @@ func (t *Tray) setStatusLocked(target Status) {
 	}
 
 	t.status = target
-}
-
-// Show makes the tray icon visible in the active warning state.
-func (t *Tray) Show() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.setStatusLocked(StatusActive)
-}
-
-// Hide hides the tray icon from the notification area.
-func (t *Tray) Hide() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.setStatusLocked(StatusPassive)
 }
 
 // RequestAttention asks the user to look at the systray icon (NeedsAttention status).
@@ -256,8 +235,8 @@ func (t *Tray) UpdateWithCategories(count int, latest string, categoryCounts map
 	}
 
 	truncated := latest
-	if len(truncated) > 40 {
-		truncated = truncated[:37] + "..."
+	if runes := []rune(truncated); len(runes) > 40 {
+		truncated = string(runes[:37]) + "..."
 	}
 
 	t.mStats.SetTitle(fmt.Sprintf("Errors (Recent): %d", count))

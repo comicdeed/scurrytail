@@ -200,10 +200,16 @@ type RecordResult struct {
 	Count          int
 	Threshold      int
 	Window         time.Duration
+	Cooldown       time.Duration
 	Urgency        string
 	Latest         string
-	TotalCount     int
-	CategoryCounts map[string]int
+}
+
+// categoryEntry encapsulates tracker instance and urgency metadata for a category.
+type categoryEntry struct {
+	tracker *Tracker
+	urgency string
+	rank    UrgencyRank
 }
 
 // UrgencyRank represents the priority order for desktop notifications and tray status latching.
@@ -256,11 +262,7 @@ type MultiTracker struct {
 	mu              sync.RWMutex
 	rules           []CompiledRule
 	unclassified    *Tracker
-	categories      map[string]*Tracker
-	urgencies       map[string]string
-	windows         map[string]time.Duration
-	thresholds      map[string]int
-	cooldowns       map[string]time.Duration
+	categories      map[string]*categoryEntry
 	globalWindow    time.Duration
 	globalThresh    int
 	globalCooldown  time.Duration
@@ -297,11 +299,7 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 	sort.Strings(catNames)
 
 	// 2. Category-level ignore: true rules (evaluated early)
-	categoryTrackers := make(map[string]*Tracker)
-	urgencies := make(map[string]string)
-	windows := make(map[string]time.Duration)
-	thresholds := make(map[string]int)
-	cooldowns := make(map[string]time.Duration)
+	categories := make(map[string]*categoryEntry)
 
 	for _, name := range catNames {
 		cat := cfg.Categories[name]
@@ -319,16 +317,16 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 	// 3. Flat pattern rules in explicit sequence
 	for _, r := range cfg.Patterns {
 		// Auto-register undeclared categories so they inherit global defaults
-		if r.Category != "" && !r.Ignore && categoryTrackers[r.Category] == nil {
-			categoryTrackers[r.Category] = New(Config{
-				Window:    cfg.Window,
-				Threshold: cfg.Threshold,
-				Cooldown:  cfg.Cooldown,
-			})
-			urgencies[r.Category] = "normal"
-			windows[r.Category] = cfg.Window
-			thresholds[r.Category] = cfg.Threshold
-			cooldowns[r.Category] = cfg.Cooldown
+		if r.Category != "" && !r.Ignore && categories[r.Category] == nil {
+			categories[r.Category] = &categoryEntry{
+				tracker: New(Config{
+					Window:    cfg.Window,
+					Threshold: cfg.Threshold,
+					Cooldown:  cfg.Cooldown,
+				}),
+				urgency: "normal",
+				rank:    UrgencyRankNormal,
+			}
 		}
 
 		rule, err := compileRule(r.Pattern, r.Category, r.Ignore)
@@ -345,16 +343,20 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 			continue
 		}
 
-		categoryTrackers[name] = New(Config{
-			Window:    cat.Window,
-			Threshold: cat.Threshold,
-			Cooldown:  cat.Cooldown,
-		})
+		urgency := cat.Urgency
+		if urgency == "" {
+			urgency = "normal"
+		}
 
-		urgencies[name] = cat.Urgency
-		windows[name] = cat.Window
-		thresholds[name] = cat.Threshold
-		cooldowns[name] = cat.Cooldown
+		categories[name] = &categoryEntry{
+			tracker: New(Config{
+				Window:    cat.Window,
+				Threshold: cat.Threshold,
+				Cooldown:  cat.Cooldown,
+			}),
+			urgency: urgency,
+			rank:    ParseUrgencyRank(urgency),
+		}
 
 		for _, pat := range cat.Patterns {
 			rule, err := compileRule(pat, name, false)
@@ -368,11 +370,7 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 	return &MultiTracker{
 		rules:          rules,
 		unclassified:   unclassTracker,
-		categories:     categoryTrackers,
-		urgencies:      urgencies,
-		windows:        windows,
-		thresholds:     thresholds,
-		cooldowns:      cooldowns,
+		categories:     categories,
 		globalWindow:   cfg.Window,
 		globalThresh:   cfg.Threshold,
 		globalCooldown: cfg.Cooldown,
@@ -401,6 +399,19 @@ func compileRule(pattern, category string, isIgnore bool) (CompiledRule, error) 
 	return rule, nil
 }
 
+// Categories returns a sorted slice of all registered category names (both explicit and auto-registered).
+func (m *MultiTracker) Categories() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	names := make([]string, 0, len(m.categories))
+	for name := range m.categories {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // Record evaluates a message against patterns (lock-free) and atomically records the event.
 func (m *MultiTracker) Record(msg string, now time.Time) RecordResult {
 	// Lock-free pattern matching pass
@@ -424,13 +435,13 @@ func (m *MultiTracker) Record(msg string, now time.Time) RecordResult {
 
 	if matchedRule != nil && matchedRule.Category != "" {
 		catName := matchedRule.Category
-		tr, exists := m.categories[catName]
+		entry, exists := m.categories[catName]
 		if exists {
-			shouldAlert, count, latest := tr.RecordAndAlert(msg, now)
+			shouldAlert, count, latest := entry.tracker.RecordAndAlert(msg, now)
 
 			var supersededBy, supersededRank string
 			if shouldAlert {
-				rank := ParseUrgencyRank(m.urgencies[catName])
+				rank := entry.rank
 				if m.activeAlertRank > rank {
 					supersededBy = m.activeAlertCat
 					if supersededBy == "" {
@@ -450,9 +461,10 @@ func (m *MultiTracker) Record(msg string, now time.Time) RecordResult {
 				SupersededBy:   supersededBy,
 				SupersededRank: supersededRank,
 				Count:          count,
-				Threshold:      m.thresholds[catName],
-				Window:         m.windows[catName],
-				Urgency:        m.urgencies[catName],
+				Threshold:      entry.tracker.cfg.Threshold,
+				Window:         entry.tracker.cfg.Window,
+				Cooldown:       entry.tracker.cfg.Cooldown,
+				Urgency:        entry.urgency,
 				Latest:         latest,
 			}
 		}
@@ -482,6 +494,7 @@ func (m *MultiTracker) Record(msg string, now time.Time) RecordResult {
 		Count:          count,
 		Threshold:      m.globalThresh,
 		Window:         m.globalWindow,
+		Cooldown:       m.globalCooldown,
 		Urgency:        "normal",
 		Latest:         latest,
 	}
@@ -508,12 +521,12 @@ func (m *MultiTracker) CheckCooldownExpirations(now time.Time) []CooldownExpirat
 		})
 	}
 
-	for catName, tr := range m.categories {
-		if expired, suppressed := tr.CheckCooldownExpiration(now); expired && suppressed > 0 {
+	for catName, entry := range m.categories {
+		if expired, suppressed := entry.tracker.CheckCooldownExpiration(now); expired && suppressed > 0 {
 			expirations = append(expirations, CooldownExpiration{
 				Category:   catName,
 				Suppressed: suppressed,
-				Cooldown:   m.cooldowns[catName],
+				Cooldown:   entry.tracker.cfg.Cooldown,
 			})
 		}
 	}
@@ -560,13 +573,13 @@ func (m *MultiTracker) snapshotLocked(now time.Time) (int, map[string]int, bool,
 		maxLatest = unclassLatest
 	}
 
-	for name, tr := range m.categories {
-		cnt, catLatest := tr.Prune(now)
+	for name, entry := range m.categories {
+		cnt, catLatest := entry.tracker.Prune(now)
 		if cnt > 0 {
 			catCounts[name] = cnt
 			total += cnt
-			if cnt >= m.thresholds[name] {
-				rank := ParseUrgencyRank(m.urgencies[name])
+			if cnt >= entry.tracker.cfg.Threshold {
+				rank := entry.rank
 				if rank >= maxRank {
 					maxRank = rank
 					maxCat = name
@@ -580,7 +593,8 @@ func (m *MultiTracker) snapshotLocked(now time.Time) (int, map[string]int, bool,
 
 	if anyAlert {
 		if m.activeAlertCat != "" {
-			if catCounts[m.activeAlertCat] >= m.thresholds[m.activeAlertCat] {
+			activeEntry := m.categories[m.activeAlertCat]
+			if activeEntry != nil && catCounts[m.activeAlertCat] >= activeEntry.tracker.cfg.Threshold {
 				maxCat = m.activeAlertCat
 				maxRank = m.activeAlertRank
 			} else {

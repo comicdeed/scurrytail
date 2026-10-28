@@ -73,10 +73,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// OS signal handling
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-
 	mt, err := tracker.NewMultiTracker(cfg)
 	if err != nil {
 		logger.Fatalf("Fatal: %v", err)
@@ -84,13 +80,7 @@ func main() {
 
 	notifier := notify.New("ScurryTail")
 
-	catNames := make([]string, 0, len(cfg.Categories))
-	for name, cat := range cfg.Categories {
-		if cat.Ignore {
-			continue
-		}
-		catNames = append(catNames, name)
-	}
+	catNames := mt.Categories()
 
 	var uiTray *tray.Tray
 	uiTray = tray.New(
@@ -112,6 +102,19 @@ func main() {
 			cancel()
 		},
 	)
+
+	// OS signal handling (independent listener guarantees immediate shutdown even if D-Bus tray is delayed)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		select {
+		case sig := <-sigCh:
+			logger.Infof("Received signal %s, shutting down...", sig)
+			cancel()
+			uiTray.Quit()
+		case <-ctx.Done():
+		}
+	}()
 
 	// Background worker coordinates log stream and metrics
 	go func() {
@@ -152,8 +155,8 @@ func main() {
 							catLabel = "unclassified"
 						}
 						truncated := wakeLatest
-						if len(truncated) > 60 {
-							truncated = truncated[:57] + "..."
+						if runes := []rune(truncated); len(runes) > 60 {
+							truncated = string(runes[:57]) + "..."
 						}
 						logger.Infof("[STATE] %s -> Active (1 active error in %s window, category: %s, latest: %q)",
 							currentStatus, cfg.Window, catLabel, truncated)
@@ -181,12 +184,6 @@ func main() {
 			case <-ctx.Done():
 				return
 
-			case sig := <-sigCh:
-				logger.Infof("Received signal %s, shutting down...", sig)
-				cancel()
-				uiTray.Quit()
-				return
-
 			case err, ok := <-errCh:
 				if ok && err != nil {
 					logger.Errorf("Journal stream error: %v", err)
@@ -194,6 +191,11 @@ func main() {
 
 			case msg, ok := <-msgCh:
 				if !ok {
+					if ctx.Err() == nil {
+						logger.Errorf("Kernel log stream terminated unexpectedly; shutting down")
+						cancel()
+						uiTray.Quit()
+					}
 					return
 				}
 				now := time.Now()

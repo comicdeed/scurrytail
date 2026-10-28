@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-# Verify journalctl command exists
-if ! command -v journalctl >/dev/null 2>&1; then
-    echo "ERROR: 'journalctl' was not found on this system." >&2
-    echo "scurrytail requires systemd-journald to stream kernel errors in real time." >&2
+# Verify journalctl or dmesg command exists
+if ! command -v journalctl >/dev/null 2>&1 && ! command -v dmesg >/dev/null 2>&1; then
+    echo "ERROR: Neither 'journalctl' nor 'dmesg' was found on this system." >&2
+    echo "scurrytail requires systemd-journald or dmesg to stream kernel errors in real time." >&2
     exit 1
 fi
 

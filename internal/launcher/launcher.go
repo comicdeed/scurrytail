@@ -152,6 +152,17 @@ func makeSpecForBinary(path string) *TerminalSpec {
 // DefaultJournalctlViewer defines the canonical journalctl command for viewing correlated logs.
 const DefaultJournalctlViewer = "journalctl -b _TRANSPORT=kernel PRIORITY=0 PRIORITY=1 PRIORITY=2 PRIORITY=3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f"
 
+// shellQuote returns a shell-escaped representation of s suitable for /bin/sh.
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	if !strings.ContainsAny(s, " \t\n\"'`$\\|&;<>()[]{}*?~#!") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // PrepareRunnerScript writes an executable script in XDG_RUNTIME_DIR (or TempDir) that execs the viewer command.
 // It returns the absolute path to the executable script.
 func PrepareRunnerScript(viewerArgs []string) (string, error) {
@@ -161,7 +172,11 @@ func PrepareRunnerScript(viewerArgs []string) (string, error) {
 	} else if len(viewerArgs) == 1 {
 		cmdStr = strings.TrimSpace(viewerArgs[0])
 	} else {
-		cmdStr = strings.Join(viewerArgs, " ")
+		quoted := make([]string, len(viewerArgs))
+		for i, arg := range viewerArgs {
+			quoted[i] = shellQuote(arg)
+		}
+		cmdStr = strings.Join(quoted, " ")
 	}
 
 	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
@@ -171,6 +186,17 @@ func PrepareRunnerScript(viewerArgs []string) (string, error) {
 	scurryDir := filepath.Join(runtimeDir, "scurrytail")
 	if err := os.MkdirAll(scurryDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create runtime runner directory: %w", err)
+	}
+
+	fi, err := os.Lstat(scurryDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat runtime runner directory: %w", err)
+	}
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		return "", fmt.Errorf("insecure runtime directory %s: not a regular directory", scurryDir)
+	}
+	if stat, ok := fi.Sys().(*syscall.Stat_t); ok && stat.Uid != uint32(os.Getuid()) {
+		return "", fmt.Errorf("insecure runtime directory %s: owned by uid %d, expected %d", scurryDir, stat.Uid, os.Getuid())
 	}
 
 	scriptPath := filepath.Join(scurryDir, "view-logs.sh")
@@ -225,6 +251,10 @@ func LaunchArgs(viewerArgs []string) error {
 		return fmt.Errorf("failed to start terminal process (%s): %w", cmd.Path, err)
 	}
 
+	go func() {
+		_ = cmd.Wait()
+	}()
+
 	return nil
 }
 
@@ -239,6 +269,10 @@ func Launch(viewerCmd string) error {
 		return fmt.Errorf("failed to start terminal process (%s): %w", cmd.Path, err)
 	}
 
+	go func() {
+		_ = cmd.Wait()
+	}()
+
 	return nil
 }
 
@@ -249,6 +283,10 @@ func OpenURL(rawURL string) error {
 		return errors.New("cannot open empty URL")
 	}
 
+	if !strings.HasPrefix(rawURL, "https://") && !strings.HasPrefix(rawURL, "http://") {
+		return fmt.Errorf("unsupported URL scheme in %q: only http:// and https:// are permitted", rawURL)
+	}
+
 	cmd := exec.Command("xdg-open", rawURL)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
@@ -256,6 +294,10 @@ func OpenURL(rawURL string) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to open URL via xdg-open: %w", err)
 	}
+
+	go func() {
+		_ = cmd.Wait()
+	}()
 
 	return nil
 }

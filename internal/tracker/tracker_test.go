@@ -364,3 +364,39 @@ func TestMultiTracker_CooldownExpirations(t *testing.T) {
 		t.Errorf("expected 0 expirations after reset, got %d", len(expAfter))
 	}
 }
+
+func TestMultiTracker_Categories(t *testing.T) {
+	cfg := config.Config{
+		Window:    10 * time.Second,
+		Threshold: 2,
+		Cooldown:  10 * time.Second,
+		Categories: map[string]config.CategoryConfig{
+			"storage": {
+				Patterns: []string{"nvme"},
+			},
+			"ignored_cat": {
+				Ignore:   true,
+				Patterns: []string{"benign"},
+			},
+		},
+		Patterns: []config.PatternRule{
+			{Pattern: "amdgpu", Category: "gpu"},
+		},
+	}
+
+	mt, err := NewMultiTracker(cfg)
+	if err != nil {
+		t.Fatalf("NewMultiTracker failed: %v", err)
+	}
+
+	cats := mt.Categories()
+	expected := []string{"gpu", "storage"}
+	if len(cats) != len(expected) {
+		t.Fatalf("expected categories %v, got %v", expected, cats)
+	}
+	for i := range expected {
+		if cats[i] != expected[i] {
+			t.Errorf("category mismatch at index %d: expected %s, got %s", i, expected[i], cats[i])
+		}
+	}
+}

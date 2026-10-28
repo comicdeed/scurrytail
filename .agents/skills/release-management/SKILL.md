@@ -90,10 +90,20 @@ PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
 git log "${PREV_TAG}..HEAD" --oneline --no-merges
 ```
 
-### 2. Update Version in Code
-Update the default fallback version string in `cmd/scurrytail/main.go`:
+### 2. Update Version in Code & Packaging
+Update the default fallback version string in `cmd/scurrytail/main.go` and packaging metadata in `nix/package.nix`:
 ```go
+// cmd/scurrytail/main.go
 var version = "v0.2.0-beta.N"
+```
+```nix
+# nix/package.nix
+version = "0.2.0-beta.N";
+ldflags = [
+  "-s"
+  "-w"
+  "-X main.version=v0.2.0-beta.N"
+];
 ```
 
 ### 3. Curate Living Draft Notes in `CHANGELOG.md`
@@ -166,10 +176,20 @@ LAST_STABLE=$(git tag --sort=-creatordate | grep -v -E '(beta|alpha|rc)' | head 
 git log "${LAST_STABLE}..HEAD" --oneline --no-merges
 ```
 
-### 2. Update Version in Code
-Update the default fallback version string in `cmd/scurrytail/main.go`:
+### 2. Update Version in Code & Packaging
+Update the default fallback version string in `cmd/scurrytail/main.go` and packaging metadata in `nix/package.nix`:
 ```go
+// cmd/scurrytail/main.go
 var version = "vX.Y.Z"
+```
+```nix
+# nix/package.nix
+version = "X.Y.Z";
+ldflags = [
+  "-s"
+  "-w"
+  "-X main.version=vX.Y.Z"
+];
 ```
 
 ### 3. Finalize Milestone Notes in `CHANGELOG.md`

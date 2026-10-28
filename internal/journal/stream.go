@@ -2,6 +2,7 @@ package journal
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -59,6 +60,31 @@ func hasCommand(name string) bool {
 	return err == nil
 }
 
+func isUptime(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c < '0' || c > '9') && c != '.' && c != ' ' {
+			return false
+		}
+	}
+	return true
+}
+
+func isNumeric(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // CleanKernelMessage extracts the core error message from a log line,
 // stripping timestamps (ISO or uptime seconds), hostname, and kernel/syslog prefixes.
 func CleanKernelMessage(raw string) string {
@@ -72,22 +98,28 @@ func CleanKernelMessage(raw string) string {
 		return strings.TrimSpace(line[idx+len("kernel: "):])
 	}
 
-	// Case 2: Process/syslog format ("process[pid]: <msg>")
-	if idx := strings.Index(line, "]: "); idx != -1 {
-		return strings.TrimSpace(line[idx+len("]: "):])
+	// Case 2: dmesg ISO timestamp format ("2026-10-21T01:38:37,848625+01:00 <subsystem>: <msg>")
+	if len(line) > 25 && line[10] == 'T' {
+		if spIdx := strings.Index(line, " "); spIdx != -1 {
+			line = strings.TrimSpace(line[spIdx+1:])
+		}
 	}
 
 	// Case 3: dmesg uptime timestamp format ("[12345.678901] <subsystem>: <msg>")
 	if strings.HasPrefix(line, "[") {
 		if closeIdx := strings.Index(line, "] "); closeIdx != -1 {
-			return strings.TrimSpace(line[closeIdx+2:])
+			inner := line[1:closeIdx]
+			if isUptime(inner) {
+				line = strings.TrimSpace(line[closeIdx+2:])
+			}
 		}
 	}
 
-	// Case 4: dmesg ISO timestamp format ("2026-10-21T01:38:37,848625+01:00 <subsystem>: <msg>")
-	if len(line) > 25 && line[10] == 'T' {
-		if spIdx := strings.Index(line, " "); spIdx != -1 {
-			return strings.TrimSpace(line[spIdx+1:])
+	// Case 4: Process/syslog format ("process[pid]: <msg>")
+	if idx := strings.Index(line, "]: "); idx != -1 {
+		openIdx := strings.LastIndex(line[:idx], "[")
+		if openIdx != -1 && isNumeric(line[openIdx+1:idx]) {
+			return strings.TrimSpace(line[idx+len("]: "):])
 		}
 	}
 
@@ -107,6 +139,9 @@ func Stream(ctx context.Context, backend string) (<-chan string, <-chan error) {
 	default:
 		cmd = exec.CommandContext(ctx, "journalctl", "-k", "-f", "-n", "0", "-p", "3", "--output", "short-precise")
 	}
+
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -128,6 +163,7 @@ func Stream(ctx context.Context, backend string) (<-chan string, <-chan error) {
 		defer close(errCh)
 
 		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, 0, 4096), 1024*1024)
 		for scanner.Scan() {
 			cleaned := CleanKernelMessage(scanner.Text())
 			if cleaned != "" {
@@ -142,7 +178,14 @@ func Stream(ctx context.Context, backend string) (<-chan string, <-chan error) {
 		if err := scanner.Err(); err != nil && ctx.Err() == nil {
 			errCh <- err
 		}
-		_ = cmd.Wait()
+		if err := cmd.Wait(); err != nil && ctx.Err() == nil {
+			errMsg := strings.TrimSpace(stderrBuf.String())
+			if errMsg != "" {
+				errCh <- fmt.Errorf("backend %s exited with %w: %s", backend, err, errMsg)
+			} else {
+				errCh <- fmt.Errorf("backend %s exited with %w", backend, err)
+			}
+		}
 	}()
 
 	return msgCh, errCh

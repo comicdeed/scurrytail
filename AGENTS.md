@@ -120,7 +120,7 @@ When writing or updating user-facing documentation (`README.md`, `docs/user-guid
 - **Commit Messages**: Use **Conventional Commits** (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`). Never stage or commit changes without explicit user directives.
 - **Release Management**: When preparing any release (Pre-Release or Formal Release), consult the [Release Management Skill](.agents/skills/release-management/SKILL.md) which orchestrates version bumps, changelog notes, validation gates, git mechanics, and post-publish verification.
 - **Fast Tag-Push Releases (Betas, Pre-releases, Daily Builds)**:
-  1. Update `CHANGELOG.md` and version constant in `cmd/scurrytail/main.go` on `main`.
+  1. Update `CHANGELOG.md`, `nix/package.nix`, and version constant in `cmd/scurrytail/main.go` on `main`.
   2. Commit: `git commit -am "chore(release): prepare vX.Y.Z-beta.N"`.
   3. Tag and push: `git tag -a vX.Y.Z-beta.N -m "Release vX.Y.Z-beta.N" && git push origin main --tags`.
   4. GitHub Actions `release.yml` triggers immediately on the tag push (`push: tags: 'v*'`), runs GoReleaser, packages artifacts, applies Convention 1 labels, and prunes older pre-releases.

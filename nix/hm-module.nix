@@ -93,6 +93,9 @@ in
         ExecStart = "${cfg.package}/bin/scurrytail";
         Restart = "on-failure";
         RestartSec = "5s";
+        MemoryMax = "64M";
+        LockPersonality = true;
+        RestrictRealtime = true;
       };
 
       Install = {
