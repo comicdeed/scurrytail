@@ -8,7 +8,7 @@
 
 buildGo127Module {
   pname = "scurrytail";
-  version = "0.3.1";
+  version = "0.3.2-beta.1";
 
   src = lib.cleanSource ./..;
 
@@ -19,7 +19,7 @@ buildGo127Module {
   ldflags = [
     "-s"
     "-w"
-    "-X main.version=v0.3.1"
+    "-X main.version=v0.3.2-beta.1"
   ];
 
   nativeBuildInputs = [ makeWrapper ];

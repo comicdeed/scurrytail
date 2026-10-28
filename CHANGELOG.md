@@ -5,6 +5,25 @@ All notable changes to **ScurryTail** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.2-beta.1] - 2026-10-28
+
+Maintenance release addressing child process leaks, D-Bus session shutdown hangs, log streaming resilience, runner script security, and YAML config layering.
+
+### ✨ Highlights
+* **✨ Zero Zombie Process Leaks**: Terminal viewer and browser subprocesses are now cleanly reaped in the background, eliminating `<defunct>` process leaks over long desktop sessions.
+* **✨ Unblocked Session Shutdown**: Decoupled operating system signal handling into a dedicated listener, ensuring instant daemon shutdown even when desktop D-Bus tray services stall.
+* **✨ Reliable YAML Log Settings**: Restored full precedence for `log_level` and `log_target` defined in YAML configuration and `conf.d/` drop-ins.
+* **✨ Complete Category Menus**: All categories defined via flat `patterns` rules are dynamically registered in the tray context submenu.
+* **✨ Hardened Runner Script & D-Bus Safety**: Runner scripts securely shell-quote multi-word arguments, runtime tmp directories verify ownership, and UTF-8 truncations are rune-safe across all D-Bus IPC strings.
+
+### 🛠️ Technical Notes
+* ✨ Reaped terminal and browser child processes asynchronously with `cmd.Wait()` in `internal/launcher`.
+* ✨ Streamlined tray state transitions with unified `CalculateStatus` in `internal/tray`, eliminating duplicate state machine logic in `cmd/scurrytail`.
+* ✨ Added 5-second `CallWithContext` timeout and bounded concurrency semaphore (capacity 3) in `internal/notify`.
+* ✨ Expanded `internal/journal` scanner token buffer to 1 MiB and protected bracketed kernel tags (`[drm:...]`) in `CleanKernelMessage`.
+* ✨ Added service hardening (`MemoryMax=64M`, `LockPersonality=true`, `RestrictRealtime=true`) across systemd units and Nix modules.
+* ✨ Added comprehensive unit test suites for `notify`, `tray`, and rule precedence in `tracker`.
+
 ## [v0.3.1] - 2026-10-28
 
 Documentation alignment for standard double-hyphen command-line flags.
