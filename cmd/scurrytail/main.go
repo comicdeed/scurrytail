@@ -15,6 +15,7 @@ import (
 	"github.com/comicdeed/scurrytail/internal/config"
 	"github.com/comicdeed/scurrytail/internal/journal"
 	"github.com/comicdeed/scurrytail/internal/launcher"
+	"github.com/comicdeed/scurrytail/internal/logging"
 	"github.com/comicdeed/scurrytail/internal/notify"
 	"github.com/comicdeed/scurrytail/internal/tracker"
 	"github.com/comicdeed/scurrytail/internal/tray"
@@ -26,7 +27,7 @@ const (
 
 var (
 	// Version can be populated at build time via -ldflags "-X main.version=..."
-	version = "v0.3.0-beta.13"
+	version = "v0.3.0-beta.14"
 )
 
 func main() {
@@ -43,14 +44,23 @@ func main() {
 		log.Fatalf("Fatal: %v", err)
 	}
 
+	logger, logErr := logging.Setup(cfg.LogTarget, cfg.LogLevel, "scurrytail")
+	if logErr != nil {
+		log.Fatalf("Fatal: configuring logger: %v", logErr)
+	}
+	defer logger.Close()
+
 	if loadedPath != "" {
-		log.Printf("Loaded configuration from %s", loadedPath)
+		logger.Infof("Loaded configuration from %s", loadedPath)
 	}
 
 	selectedBackend, defaultViewer, err := journal.ResolveBackend(cfg.Backend)
 	if err != nil {
-		log.Fatalf("Fatal: %v", err)
+		logger.Fatalf("Fatal: %v", err)
 	}
+
+	logger.Infof("Starting ScurryTail %s (backend: %s, threshold: %d, window: %s, cooldown: %s, log_target: %s, log_level: %s)",
+		version, selectedBackend, cfg.Threshold, cfg.Window, cfg.Cooldown, cfg.LogTarget, cfg.LogLevel)
 
 	// Resolve viewer command arguments: CLI flag / env / config file > backend default
 	var activeViewerArgs []string
@@ -69,7 +79,7 @@ func main() {
 
 	mt, err := tracker.NewMultiTracker(cfg)
 	if err != nil {
-		log.Fatalf("Fatal: %v", err)
+		logger.Fatalf("Fatal: %v", err)
 	}
 
 	notifier := notify.New("ScurryTail")
@@ -90,12 +100,12 @@ func main() {
 		catNames,
 		func() {
 			if err := launcher.LaunchArgs(activeViewerArgs); err != nil {
-				log.Printf("Failed to open kernel log viewer: %v", err)
+				logger.Errorf("Failed to open kernel log viewer: %v", err)
 			}
 		},
 		func() {
 			if err := launcher.OpenURL(projectURL); err != nil {
-				log.Printf("Failed to open project website: %v", err)
+				logger.Errorf("Failed to open project website: %v", err)
 			}
 		},
 		func() {
@@ -115,6 +125,56 @@ func main() {
 		trayCoalesceTicker := time.NewTicker(250 * time.Millisecond)
 		defer trayCoalesceTicker.Stop()
 		var pendingTrayUpdate bool
+		currentStatus := tray.StatusPassive
+		var wakeCategory, wakeLatest string
+
+		evaluateState := func(prune tracker.PruneResult) {
+			var targetStatus tray.Status
+			switch {
+			case prune.TotalCount == 0:
+				targetStatus = tray.StatusPassive
+			case prune.AnyAlerting || (cfg.Threshold > 0 && prune.TotalCount >= cfg.Threshold):
+				targetStatus = tray.StatusNeedsAttention
+			default:
+				targetStatus = tray.StatusActive
+			}
+
+			if targetStatus != currentStatus {
+				switch targetStatus {
+				case tray.StatusPassive:
+					logger.Infof("[STATE] %s -> Passive (rolling window clean, 0 errors)", currentStatus)
+					wakeCategory = ""
+					wakeLatest = ""
+				case tray.StatusActive:
+					if currentStatus == tray.StatusPassive {
+						catLabel := wakeCategory
+						if catLabel == "" {
+							catLabel = "unclassified"
+						}
+						truncated := wakeLatest
+						if len(truncated) > 60 {
+							truncated = truncated[:57] + "..."
+						}
+						logger.Infof("[STATE] %s -> Active (1 active error in %s window, category: %s, latest: %q)",
+							currentStatus, cfg.Window, catLabel, truncated)
+					} else {
+						logger.Infof("[STATE] %s -> Active (%d active error(s) in %s window)", currentStatus, prune.TotalCount, cfg.Window)
+					}
+				case tray.StatusNeedsAttention:
+					cat := prune.AlertCategory
+					if cat == "" {
+						cat = "global"
+					}
+					urgency := prune.AlertUrgency
+					if urgency == "" {
+						urgency = "normal"
+					}
+					logger.Warningf("[STATE] %s -> NeedsAttention (%d active error(s) in %s window, category: %s, urgency: %s)",
+						currentStatus, prune.TotalCount, cfg.Window, cat, urgency)
+				}
+				currentStatus = targetStatus
+			}
+		}
 
 		for {
 			select {
@@ -122,14 +182,14 @@ func main() {
 				return
 
 			case sig := <-sigCh:
-				log.Printf("Received signal %s, shutting down...", sig)
+				logger.Infof("Received signal %s, shutting down...", sig)
 				cancel()
 				uiTray.Quit()
 				return
 
 			case err, ok := <-errCh:
 				if ok && err != nil {
-					log.Printf("Journal stream error: %v", err)
+					logger.Errorf("Journal stream error: %v", err)
 				}
 
 			case msg, ok := <-msgCh:
@@ -142,8 +202,26 @@ func main() {
 					continue
 				}
 
+				if currentStatus == tray.StatusPassive {
+					wakeCategory = res.Category
+					wakeLatest = res.Latest
+				}
+
 				if res.ShouldAlert {
 					uiTray.RequestAttention()
+					alertCat := res.Category
+					if alertCat == "" {
+						alertCat = "global"
+					}
+
+					if res.SupersededBy != "" {
+						logger.Warningf("[ALERT] Threshold reached [%s]: %d errors in %s (threshold %d, urgency %s) -> dispatched notification; tray display remains latched to [%s] (%s)",
+							alertCat, res.Count, res.Window, res.Threshold, res.Urgency, res.SupersededBy, res.SupersededRank)
+					} else {
+						logger.Warningf("[ALERT] Threshold reached [%s]: %d errors in %s (threshold %d, urgency %s) -> dispatching notification",
+							alertCat, res.Count, res.Window, res.Threshold, res.Urgency)
+					}
+
 					var summary, body string
 					if res.Category != "" {
 						summary = fmt.Sprintf("⚠️ High Kernel Error Rate [%s]", res.Category)
@@ -154,9 +232,14 @@ func main() {
 						body = fmt.Sprintf("Detected %d kernel errors in the last %s!\nLatest: %s",
 							res.Count, res.Window.String(), res.Latest)
 					}
-					if err := notifier.SendWithUrgency(summary, body, res.Urgency); err != nil {
-						log.Printf("Failed to deliver notification: %v", err)
-					}
+
+					// Asynchronous notification delivery to eliminate D-Bus head-of-line blocking
+					urgency := res.Urgency
+					go func(s, b, u string) {
+						if err := notifier.SendWithUrgency(s, b, u); err != nil {
+							logger.Errorf("Failed to deliver notification: %v", err)
+						}
+					}(summary, body, urgency)
 				}
 
 				pendingTrayUpdate = true
@@ -164,12 +247,23 @@ func main() {
 			case now := <-trayCoalesceTicker.C:
 				if pendingTrayUpdate {
 					prune := mt.Prune(now)
+					evaluateState(prune)
 					uiTray.UpdateWithCategories(prune.TotalCount, prune.Latest, prune.CategoryCounts, prune.AnyAlerting, prune.AlertCategory, prune.AlertUrgency)
 					pendingTrayUpdate = false
 				}
 
 			case now := <-ticker.C:
+				for _, exp := range mt.CheckCooldownExpirations(now) {
+					label := exp.Category
+					if label == "" {
+						label = "global"
+					}
+					logger.Infof("[COOLDOWN] Cooldown expired [%s]: resumed monitoring (suppressed %d error(s) during %s cooldown)",
+						label, exp.Suppressed, exp.Cooldown)
+				}
+
 				prune := mt.Prune(now)
+				evaluateState(prune)
 				uiTray.UpdateWithCategories(prune.TotalCount, prune.Latest, prune.CategoryCounts, prune.AnyAlerting, prune.AlertCategory, prune.AlertUrgency)
 				pendingTrayUpdate = false
 			}

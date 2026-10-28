@@ -5,6 +5,25 @@ All notable changes to **ScurryTail** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.14] - 2026-10-28
+
+Pure-Go syslog logging integration via codemedic/go-log, high-signal activity and state transition auditing, kernel-style batched debounce summaries, and non-blocking desktop notifications.
+
+### ✨ Highlights
+* **✨ Pure-Go Syslog & Console Logging**: Integrated `codemedic/go-log` with dual support for system syslog (`/dev/log` with tag `scurrytail`) in background/daemon mode and direct console logging in interactive terminal sessions.
+* **✨ High-Signal State Auditing**: Emits lifecycle state transitions (`Passive` $\leftrightarrow$ `Active` $\leftrightarrow$ `NeedsAttention`) and threshold alerts to syslog/journald without duplicating raw kernel log messages.
+* **✨ Enriched Wakeup Attribution**: Initial transition from clean state (`Passive -> Active`) identifies the specific triggering error category and message snippet.
+* **✨ Kernel-Style Batched Debounce Summaries**: Replaced noisy per-message throttling with silent in-memory counting and single boundary summaries upon cooldown expiration.
+* **✨ Priority Latching in Audit Trail**: Explicitly records when an alert threshold is met while a higher-urgency alert holds the tray latch.
+* **Subsystem Error Categories**: Classify errors into dedicated categories (`storage`, `gpu`, `wifi`, `dock`, `usb`) with independent sliding windows, alert thresholds, and notification urgency levels (`critical`, `normal`, `low`).
+
+### 🛠️ Technical Notes
+* ✨ Added `github.com/codemedic/go-log v1.1.0` with zero external dependencies and pure-Go `log/syslog` backing (`CGO_ENABLED=0`).
+* ✨ Decoupled desktop notification dispatch into an asynchronous background goroutine to eliminate D-Bus RPC head-of-line blocking during floods.
+* ✨ Consolidated `Tracker.RecordAndAlert()` to acquire locks and evaluate prune cutoffs in a single atomic pass.
+* ✨ Added `--log-level` (`SCURRYTAIL_LOG_LEVEL`) and `--log-target` (`SCURRYTAIL_LOG_TARGET`) configuration options.
+* ✨ Refreshed hermetic Nix package derivation `vendorHash`.
+
 ## [v0.3.0-beta.13] - 2026-10-28
 
 Subsystem pattern classification, benign error suppression, pure hierarchical YAML layering via conf.d/, and priority-latched desktop alerts.

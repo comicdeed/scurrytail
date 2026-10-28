@@ -302,3 +302,43 @@ categories:
 		t.Errorf("expected error to mention invalid regex, got: %v", err)
 	}
 }
+
+func TestLoad_LoggingOptions(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	// Test defaults
+	cfg, _, _, err := Load("v0.1.0", []string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.LogLevel != "info" {
+		t.Errorf("expected default log_level info, got %s", cfg.LogLevel)
+	}
+	if cfg.LogTarget != "auto" {
+		t.Errorf("expected default log_target auto, got %s", cfg.LogTarget)
+	}
+
+	// Test CLI flags
+	cfgFlag, _, _, err := Load("v0.1.0", []string{"--log-level=debug", "--log-target=stderr"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfgFlag.LogLevel != "debug" {
+		t.Errorf("expected log_level debug, got %s", cfgFlag.LogLevel)
+	}
+	if cfgFlag.LogTarget != "stderr" {
+		t.Errorf("expected log_target stderr, got %s", cfgFlag.LogTarget)
+	}
+
+	// Test invalid log level
+	_, _, _, err = Load("v0.1.0", []string{"--log-level=invalid"})
+	if err == nil {
+		t.Errorf("expected error for invalid log level, got nil")
+	}
+
+	// Test invalid log target
+	_, _, _, err = Load("v0.1.0", []string{"--log-target=invalid"})
+	if err == nil {
+		t.Errorf("expected error for invalid log target, got nil")
+	}
+}

@@ -2,6 +2,8 @@ github.com/ardanlabs/conf/v3 v3.13.0 h1:XKQXX35fFq/jencPu19xh0a6NPMT4NrpcRP/F9x7
 github.com/ardanlabs/conf/v3 v3.13.0/go.mod h1:XlL9P0quWP4m1weOVFmlezabinbZLI05niDof/+Ochk=
 github.com/codemedic/fyne-io-systray v1.1.1-0.20261026181359-01d8092ab2cf h1:MWRZHiCMnrPvXjXE+TX2uRTwAvHsVHMMTPlBPLbKuFI=
 github.com/codemedic/fyne-io-systray v1.1.1-0.20261026181359-01d8092ab2cf/go.mod h1:RVwqP9nYMo7h5zViCBHri2FgjXF7H2cub7MAq4NSoLs=
+github.com/codemedic/go-log v1.1.0 h1:ZN5v2lpBpT5UmCwB84hSInRtg6N0+h0uGPDTSTVHGk4=
+github.com/codemedic/go-log v1.1.0/go.mod h1:pezD/xQH+TpNc540MKg6QQkNiGMazpuZZjW6aeiBuME=
 github.com/godbus/dbus/v5 v5.1.0 h1:4KLkAxT3aOY8Li4FRJe/KvhoNFFxo0m6fNuFUO8QJUk=
 github.com/godbus/dbus/v5 v5.1.0/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/google/go-cmp v0.3.1 h1:Xye71clBPdm5HgqGwUkwhbynsUJZhDbS20FvLhQ2izg=

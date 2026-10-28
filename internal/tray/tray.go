@@ -16,13 +16,27 @@ var iconNormal []byte
 //go:embed assets/icon_warning.png
 var iconWarning []byte
 
-type status int
+// Status represents the operational alerting state of ScurryTail.
+type Status int
 
 const (
-	statusPassive status = iota
-	statusActive
-	statusNeedsAttention
+	StatusPassive Status = iota
+	StatusActive
+	StatusNeedsAttention
 )
+
+func (s Status) String() string {
+	switch s {
+	case StatusPassive:
+		return "Passive"
+	case StatusActive:
+		return "Active"
+	case StatusNeedsAttention:
+		return "NeedsAttention"
+	default:
+		return "Unknown"
+	}
+}
 
 // Tray manages the system tray icon, tooltips, and context menu items.
 type Tray struct {
@@ -31,7 +45,7 @@ type Tray struct {
 	backend       string
 	threshold     int
 	categoryNames []string
-	status        status
+	status        Status
 	mStats        *systray.MenuItem
 	mLatest       *systray.MenuItem
 	mCategories   *systray.MenuItem
@@ -79,7 +93,7 @@ func (t *Tray) Init() {
 	systray.Hide()
 
 	t.mu.Lock()
-	t.status = statusPassive
+	t.status = StatusPassive
 
 	t.mStats = systray.AddMenuItem("Errors (Recent): 0", "Count of kernel errors in the rolling window")
 	t.mStats.Disable()
@@ -156,27 +170,34 @@ func (t *Tray) Init() {
 	}()
 }
 
+// CurrentStatus returns the current operational Status.
+func (t *Tray) CurrentStatus() Status {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.status
+}
+
 // setStatusLocked handles transitions between SNI statuses and manages icons.
 // Caller must hold t.mu.
-func (t *Tray) setStatusLocked(target status) {
+func (t *Tray) setStatusLocked(target Status) {
 	if t.status == target {
 		return
 	}
 
 	switch target {
-	case statusPassive:
+	case StatusPassive:
 		systray.Hide()
 		systray.SetIcon(iconNormal)
 
-	case statusActive:
-		if t.status == statusPassive {
+	case StatusActive:
+		if t.status == StatusPassive {
 			systray.SetIcon(iconWarning)
 		}
 		// Calling Show() sets SNI Status to Active and clears NeedsAttention in fyne-io-systray
 		systray.Show()
 
-	case statusNeedsAttention:
-		if t.status == statusPassive {
+	case StatusNeedsAttention:
+		if t.status == StatusPassive {
 			systray.SetIcon(iconWarning)
 			systray.Show()
 		}
@@ -190,14 +211,14 @@ func (t *Tray) setStatusLocked(target status) {
 func (t *Tray) Show() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.setStatusLocked(statusActive)
+	t.setStatusLocked(StatusActive)
 }
 
 // Hide hides the tray icon from the notification area.
 func (t *Tray) Hide() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.setStatusLocked(statusPassive)
+	t.setStatusLocked(StatusPassive)
 }
 
 // RequestAttention asks the user to look at the systray icon (NeedsAttention status).
@@ -207,12 +228,12 @@ func (t *Tray) RequestAttention() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.status == statusPassive {
+	if t.status == StatusPassive {
 		systray.SetIcon(iconWarning)
 		systray.Show()
 	}
 	systray.RequestAttention()
-	t.status = statusNeedsAttention
+	t.status = StatusNeedsAttention
 }
 
 // Update dynamically refreshes standard metrics (backward-compatibility wrapper).
@@ -283,13 +304,13 @@ func (t *Tray) UpdateWithCategories(count int, latest string, categoryCounts map
 
 	switch {
 	case count == 0:
-		t.setStatusLocked(statusPassive)
+		t.setStatusLocked(StatusPassive)
 
 	case anyAlerting || (t.threshold > 0 && count >= t.threshold):
-		t.setStatusLocked(statusNeedsAttention)
+		t.setStatusLocked(StatusNeedsAttention)
 
 	default:
-		t.setStatusLocked(statusActive)
+		t.setStatusLocked(StatusActive)
 	}
 }
 

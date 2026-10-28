@@ -248,7 +248,17 @@ func TestMultiTracker_PriorityLatching(t *testing.T) {
 
 	// 2. Low-priority dock burst occurs at t = 10s (exceeds dock threshold 2)
 	mt.Record("hub 7-1: hub_ext_port_status failed", baseTime.Add(10*time.Second))
-	mt.Record("hub 7-1: hub_ext_port_status failed", baseTime.Add(11*time.Second))
+	res := mt.Record("hub 7-1: hub_ext_port_status failed", baseTime.Add(11*time.Second))
+
+	if !res.ShouldAlert {
+		t.Fatalf("expected dock error to trigger ShouldAlert")
+	}
+	if res.SupersededBy != "storage" {
+		t.Errorf("expected dock alert to be superseded by 'storage', got %q", res.SupersededBy)
+	}
+	if res.SupersededRank != "critical" {
+		t.Errorf("expected SupersededRank 'critical', got %q", res.SupersededRank)
+	}
 
 	prune = mt.Prune(baseTime.Add(12 * time.Second))
 	if !prune.AnyAlerting {
@@ -284,5 +294,73 @@ func TestMultiTracker_PriorityLatching(t *testing.T) {
 	}
 	if prune.TotalCount != 0 {
 		t.Errorf("expected TotalCount 0, got %d", prune.TotalCount)
+	}
+}
+
+func TestMultiTracker_CooldownExpirations(t *testing.T) {
+	cfg := config.Config{
+		Threshold: 2,
+		Window:    60 * time.Second,
+		Cooldown:  10 * time.Second,
+		Categories: map[string]config.CategoryConfig{
+			"wifi": {
+				Threshold: 2,
+				Window:    30 * time.Second,
+				Cooldown:  10 * time.Second,
+				Urgency:   "normal",
+				Patterns:  []string{"iwlwifi.*"},
+			},
+		},
+	}
+
+	mt, err := NewMultiTracker(cfg)
+	if err != nil {
+		t.Fatalf("failed to create MultiTracker: %v", err)
+	}
+
+	baseTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	// First error (below threshold)
+	r1 := mt.Record("iwlwifi: link down", baseTime)
+	if r1.ShouldAlert {
+		t.Errorf("did not expect alert on 1st error")
+	}
+
+	// Second error (reaches threshold -> alerts)
+	r2 := mt.Record("iwlwifi: link down", baseTime.Add(1*time.Second))
+	if !r2.ShouldAlert {
+		t.Fatalf("expected alert on 2nd error")
+	}
+
+	// 5 subsequent errors within the 10s cooldown window (should be debounced/suppressed)
+	for i := 2; i <= 6; i++ {
+		r := mt.Record("iwlwifi: link down", baseTime.Add(time.Duration(i)*time.Second))
+		if r.ShouldAlert {
+			t.Errorf("error %d should have been debounced by cooldown", i)
+		}
+	}
+
+	// Check at t = 5s (cooldown still active) -> no expirations
+	expMid := mt.CheckCooldownExpirations(baseTime.Add(5 * time.Second))
+	if len(expMid) != 0 {
+		t.Errorf("expected 0 expirations during cooldown, got %d", len(expMid))
+	}
+
+	// Check at t = 12s (cooldown of 10s elapsed since t = 1s) -> 1 expiration with 5 suppressed errors
+	expEnd := mt.CheckCooldownExpirations(baseTime.Add(12 * time.Second))
+	if len(expEnd) != 1 {
+		t.Fatalf("expected 1 cooldown expiration, got %d", len(expEnd))
+	}
+	if expEnd[0].Category != "wifi" {
+		t.Errorf("expected category 'wifi', got %q", expEnd[0].Category)
+	}
+	if expEnd[0].Suppressed != 5 {
+		t.Errorf("expected 5 suppressed errors, got %d", expEnd[0].Suppressed)
+	}
+
+	// Immediate subsequent check should return 0 (counter was reset)
+	expAfter := mt.CheckCooldownExpirations(baseTime.Add(13 * time.Second))
+	if len(expAfter) != 0 {
+		t.Errorf("expected 0 expirations after reset, got %d", len(expAfter))
 	}
 }

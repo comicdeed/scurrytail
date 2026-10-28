@@ -34,6 +34,7 @@ type Tracker struct {
 	timestamps       []time.Time
 	latestMsg        string
 	lastNotification time.Time
+	suppressedCount  int
 }
 
 // New creates a new Tracker with the specified configuration.
@@ -101,6 +102,49 @@ func (t *Tracker) pruneLocked(now time.Time) {
 	}
 }
 
+// RecordAndAlert atomically registers a new error and evaluates alert thresholds in a single lock pass.
+func (t *Tracker) RecordAndAlert(msg string, now time.Time) (bool, int, string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.pruneLocked(now)
+
+	if len(t.timestamps) >= t.maxCapacity {
+		copy(t.timestamps, t.timestamps[1:])
+		t.timestamps[len(t.timestamps)-1] = now
+	} else {
+		t.timestamps = append(t.timestamps, now)
+	}
+	t.latestMsg = msg
+	count := len(t.timestamps)
+
+	if count < t.cfg.Threshold {
+		return false, count, t.latestMsg
+	}
+
+	if !t.lastNotification.IsZero() && now.Sub(t.lastNotification) < t.cfg.Cooldown {
+		t.suppressedCount++
+		return false, count, t.latestMsg
+	}
+
+	t.lastNotification = now
+	return true, count, t.latestMsg
+}
+
+// CheckCooldownExpiration checks if the cooldown has elapsed and returns any suppressed error count.
+func (t *Tracker) CheckCooldownExpiration(now time.Time) (bool, int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if !t.lastNotification.IsZero() && now.Sub(t.lastNotification) >= t.cfg.Cooldown {
+		suppressed := t.suppressedCount
+		t.suppressedCount = 0
+		t.lastNotification = time.Time{}
+		return true, suppressed
+	}
+	return false, 0
+}
+
 // ShouldAlert checks if the current error count satisfies the alert threshold
 // and the cooldown period has elapsed. If true, updates lastNotification and returns count and latest msg.
 func (t *Tracker) ShouldAlert(now time.Time) (bool, int, string) {
@@ -114,6 +158,7 @@ func (t *Tracker) ShouldAlert(now time.Time) (bool, int, string) {
 	}
 
 	if !t.lastNotification.IsZero() && now.Sub(t.lastNotification) < t.cfg.Cooldown {
+		t.suppressedCount++
 		return false, count, t.latestMsg
 	}
 
@@ -150,6 +195,8 @@ type RecordResult struct {
 	Ignored        bool
 	Category       string // Empty string denotes unclassified
 	ShouldAlert    bool
+	SupersededBy   string // Non-empty if another category currently holds higher display rank
+	SupersededRank string // Urgency rank string of the higher-order category
 	Count          int
 	Threshold      int
 	Window         time.Duration
@@ -213,8 +260,10 @@ type MultiTracker struct {
 	urgencies       map[string]string
 	windows         map[string]time.Duration
 	thresholds      map[string]int
+	cooldowns       map[string]time.Duration
 	globalWindow    time.Duration
 	globalThresh    int
+	globalCooldown  time.Duration
 	latestMsg       string
 	activeAlertMsg  string
 	activeAlertCat  string
@@ -252,6 +301,7 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 	urgencies := make(map[string]string)
 	windows := make(map[string]time.Duration)
 	thresholds := make(map[string]int)
+	cooldowns := make(map[string]time.Duration)
 
 	for _, name := range catNames {
 		cat := cfg.Categories[name]
@@ -278,6 +328,7 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 			urgencies[r.Category] = "normal"
 			windows[r.Category] = cfg.Window
 			thresholds[r.Category] = cfg.Threshold
+			cooldowns[r.Category] = cfg.Cooldown
 		}
 
 		rule, err := compileRule(r.Pattern, r.Category, r.Ignore)
@@ -303,6 +354,7 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 		urgencies[name] = cat.Urgency
 		windows[name] = cat.Window
 		thresholds[name] = cat.Threshold
+		cooldowns[name] = cat.Cooldown
 
 		for _, pat := range cat.Patterns {
 			rule, err := compileRule(pat, name, false)
@@ -314,15 +366,17 @@ func NewMultiTracker(cfg config.Config) (*MultiTracker, error) {
 	}
 
 	return &MultiTracker{
-		rules:        rules,
-		unclassified: unclassTracker,
-		categories:   categoryTrackers,
-		urgencies:    urgencies,
-		windows:      windows,
-		thresholds:   thresholds,
-		globalWindow: cfg.Window,
-		globalThresh: cfg.Threshold,
-		latestMsg:    "None",
+		rules:          rules,
+		unclassified:   unclassTracker,
+		categories:     categoryTrackers,
+		urgencies:      urgencies,
+		windows:        windows,
+		thresholds:     thresholds,
+		cooldowns:      cooldowns,
+		globalWindow:   cfg.Window,
+		globalThresh:   cfg.Threshold,
+		globalCooldown: cfg.Cooldown,
+		latestMsg:      "None",
 	}, nil
 }
 
@@ -372,12 +426,18 @@ func (m *MultiTracker) Record(msg string, now time.Time) RecordResult {
 		catName := matchedRule.Category
 		tr, exists := m.categories[catName]
 		if exists {
-			tr.Record(msg, now)
-			shouldAlert, count, latest := tr.ShouldAlert(now)
+			shouldAlert, count, latest := tr.RecordAndAlert(msg, now)
 
+			var supersededBy, supersededRank string
 			if shouldAlert {
 				rank := ParseUrgencyRank(m.urgencies[catName])
-				if rank >= m.activeAlertRank {
+				if m.activeAlertRank > rank {
+					supersededBy = m.activeAlertCat
+					if supersededBy == "" {
+						supersededBy = "global"
+					}
+					supersededRank = m.activeAlertRank.String()
+				} else {
 					m.activeAlertRank = rank
 					m.activeAlertCat = catName
 					m.activeAlertMsg = msg
@@ -385,24 +445,29 @@ func (m *MultiTracker) Record(msg string, now time.Time) RecordResult {
 			}
 
 			return RecordResult{
-				Category:    catName,
-				ShouldAlert: shouldAlert,
-				Count:       count,
-				Threshold:   m.thresholds[catName],
-				Window:      m.windows[catName],
-				Urgency:     m.urgencies[catName],
-				Latest:      latest,
+				Category:       catName,
+				ShouldAlert:    shouldAlert,
+				SupersededBy:   supersededBy,
+				SupersededRank: supersededRank,
+				Count:          count,
+				Threshold:      m.thresholds[catName],
+				Window:         m.windows[catName],
+				Urgency:        m.urgencies[catName],
+				Latest:         latest,
 			}
 		}
 	}
 
 	// Unclassified fallback
-	m.unclassified.Record(msg, now)
-	shouldAlert, count, latest := m.unclassified.ShouldAlert(now)
+	shouldAlert, count, latest := m.unclassified.RecordAndAlert(msg, now)
 
+	var supersededBy, supersededRank string
 	if shouldAlert {
 		rank := UrgencyRankNormal
-		if rank >= m.activeAlertRank {
+		if m.activeAlertRank > rank {
+			supersededBy = m.activeAlertCat
+			supersededRank = m.activeAlertRank.String()
+		} else {
 			m.activeAlertRank = rank
 			m.activeAlertCat = ""
 			m.activeAlertMsg = msg
@@ -410,14 +475,50 @@ func (m *MultiTracker) Record(msg string, now time.Time) RecordResult {
 	}
 
 	return RecordResult{
-		Category:    "",
-		ShouldAlert: shouldAlert,
-		Count:       count,
-		Threshold:   m.globalThresh,
-		Window:      m.globalWindow,
-		Urgency:     "normal",
-		Latest:      latest,
+		Category:       "",
+		ShouldAlert:    shouldAlert,
+		SupersededBy:   supersededBy,
+		SupersededRank: supersededRank,
+		Count:          count,
+		Threshold:      m.globalThresh,
+		Window:         m.globalWindow,
+		Urgency:        "normal",
+		Latest:         latest,
 	}
+}
+
+// CooldownExpiration represents an expired cooldown period with suppression metrics.
+type CooldownExpiration struct {
+	Category   string
+	Suppressed int
+	Cooldown   time.Duration
+}
+
+// CheckCooldownExpirations evaluates all category and global trackers to detect finished cooldown windows.
+func (m *MultiTracker) CheckCooldownExpirations(now time.Time) []CooldownExpiration {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var expirations []CooldownExpiration
+	if expired, suppressed := m.unclassified.CheckCooldownExpiration(now); expired && suppressed > 0 {
+		expirations = append(expirations, CooldownExpiration{
+			Category:   "",
+			Suppressed: suppressed,
+			Cooldown:   m.globalCooldown,
+		})
+	}
+
+	for catName, tr := range m.categories {
+		if expired, suppressed := tr.CheckCooldownExpiration(now); expired && suppressed > 0 {
+			expirations = append(expirations, CooldownExpiration{
+				Category:   catName,
+				Suppressed: suppressed,
+				Cooldown:   m.cooldowns[catName],
+			})
+		}
+	}
+
+	return expirations
 }
 
 // Prune evicts expired timestamps across all trackers and returns an aggregate status snapshot.

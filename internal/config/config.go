@@ -85,6 +85,8 @@ type Config struct {
 	Window      time.Duration             `conf:"default:1m,help:Rolling evaluation window duration" yaml:"window"`
 	Cooldown    time.Duration             `conf:"default:45s,help:Notification suppression cooldown period" yaml:"cooldown"`
 	ViewerCmd   StringList                `conf:"flag:viewer-cmd,help:Command to view kernel logs in terminal" yaml:"viewer_cmd"`
+	LogLevel    string                    `conf:"default:info,help:Logging level: debug, info, warning, error" yaml:"log_level"`
+	LogTarget   string                    `conf:"default:auto,help:Log sink: auto, syslog, stderr" yaml:"log_target"`
 	Ignore      []string                  `conf:"-" yaml:"ignore"`
 	Categories  map[string]CategoryConfig `conf:"-" yaml:"categories"`
 	Patterns    []PatternRule             `conf:"-" yaml:"patterns"`
@@ -99,6 +101,8 @@ func Default() Config {
 		Window:     60 * time.Second,
 		Cooldown:   45 * time.Second,
 		ViewerCmd:  nil,
+		LogLevel:   "info",
+		LogTarget:  "auto",
 		Categories: make(map[string]CategoryConfig),
 	}
 }
@@ -120,6 +124,8 @@ type layerConfig struct {
 	Window     *time.Duration           `yaml:"window"`
 	Cooldown   *time.Duration           `yaml:"cooldown"`
 	ViewerCmd  *StringList              `yaml:"viewer_cmd"`
+	LogLevel   *string                  `yaml:"log_level"`
+	LogTarget  *string                  `yaml:"log_target"`
 	Ignore     []string                 `yaml:"ignore"`
 	Categories map[string]categoryLayer `yaml:"categories"`
 	Patterns   []PatternRule            `yaml:"patterns"`
@@ -259,6 +265,12 @@ func MergeYAMLLayers(paths []string) (Config, []byte, error) {
 		if layer.ViewerCmd != nil {
 			merged.ViewerCmd = *layer.ViewerCmd
 		}
+		if layer.LogLevel != nil {
+			merged.LogLevel = *layer.LogLevel
+		}
+		if layer.LogTarget != nil {
+			merged.LogTarget = *layer.LogTarget
+		}
 
 		// Append ignore patterns (with deduplication)
 		for _, pat := range layer.Ignore {
@@ -382,6 +394,23 @@ func containsString(slice []string, val string) bool {
 	return false
 }
 
+// Validate verifies general configuration settings such as LogLevel and LogTarget.
+func Validate(cfg Config) error {
+	switch strings.ToLower(strings.TrimSpace(cfg.LogLevel)) {
+	case "debug", "info", "warn", "warning", "error", "":
+	default:
+		return fmt.Errorf("invalid log_level %q: must be one of debug, info, warning, error", cfg.LogLevel)
+	}
+
+	switch strings.ToLower(strings.TrimSpace(cfg.LogTarget)) {
+	case "auto", "syslog", "stderr", "":
+	default:
+		return fmt.Errorf("invalid log_target %q: must be one of auto, syslog, stderr", cfg.LogTarget)
+	}
+
+	return ValidatePatterns(cfg)
+}
+
 // ValidatePatterns verifies that all regex patterns in the config compile cleanly.
 func ValidatePatterns(cfg Config) error {
 	for _, pat := range cfg.Ignore {
@@ -500,8 +529,8 @@ func Load(versionStr string, args []string) (Config, string, string, error) {
 		cfg.Categories[catName] = cat
 	}
 
-	// Validate compiled regexes early
-	if err := ValidatePatterns(cfg); err != nil {
+	// Validate configuration settings and regex patterns early
+	if err := Validate(cfg); err != nil {
 		return cfg, strings.Join(files, ", "), "", err
 	}
 

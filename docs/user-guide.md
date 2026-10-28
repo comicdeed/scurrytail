@@ -103,6 +103,72 @@ Quit
 
 ---
 
+## 🔍 Expert Auditing & Activity History
+
+`ScurryTail` emits high-signal telemetry detailing its internal state transitions and decision logic without duplicating raw kernel logs. This provides an audit trail for diagnosing transient error bursts, verifying suppression rules, and inspecting when alerts fired.
+
+### Operational Logging & Portability
+
+`ScurryTail` uses pure-Go syslog logging (`github.com/codemedic/go-log`), providing seamless operation across all Linux environments:
+
+* **Systemd User Sessions**: Logs are written to `/dev/log` with tag `scurrytail` and captured by `systemd-journald` (`SYSLOG_IDENTIFIER=scurrytail`).
+* **Non-Systemd & Binary Tarball Distributions**: On Alpine, Devuan, Void, Artix, Slackware, or manual window-manager sessions (`.xinitrc`), messages route directly to standard syslog daemons (`rsyslog`, `syslog-ng`, `busybox syslogd`) into `/var/log/messages` or `/var/log/syslog`.
+* **Interactive Terminal**: When run in a foreground terminal (`./bin/scurrytail`), logs automatically emit directly to `stderr` with human-readable timestamps and levels.
+
+### Interleaved Journal Correlation (`journalctl`)
+
+To audit `ScurryTail` state changes alongside live kernel errors in exact chronological order:
+
+```bash
+# Follow live kernel errors interleaved with ScurryTail state evaluations:
+journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service -f
+```
+
+> [!TIP]
+> **Why the `+` operator?** Passing `-k --user-unit scurrytail` computes a logical **AND** between the kernel transport and the user unit, returning zero results. Systemd's `+` separator instructs `journalctl` to perform a logical **OR** disjunction, interleaving both streams seamlessly.
+
+For non-systemd services or standalone runs where ScurryTail is run manually:
+```bash
+journalctl -b _TRANSPORT=kernel -p 3 + -b SYSLOG_IDENTIFIER=scurrytail -f
+```
+
+### Auditing on Non-Systemd Systems
+
+On systems utilizing traditional syslog daemons (`rsyslog` or `syslog-ng`):
+
+```bash
+# Filter ScurryTail state changes from system messages:
+grep "scurrytail" /var/log/messages | grep "\[STATE\]"
+
+# Stream live kernel and ScurryTail activity simultaneously:
+tail -f /var/log/messages | grep -E "kernel|scurrytail"
+```
+
+### Audit Trail Anatomy
+
+ScurryTail logs meta-decisions rather than duplicating entire kernel payloads:
+
+```text
+Oct 28 09:30:00 host kernel: usb 3-1: device descriptor read/64, error -71
+Oct 28 09:30:00 host scurrytail[1234]: [STATE] Passive -> Active (1 active error in 1m0s window, category: usb, latest: "usb 3-1: device descriptor read/64, error -71")
+Oct 28 09:30:04 host kernel: usb 3-1: device descriptor read/64, error -71
+Oct 28 09:30:08 host kernel: usb 3-1: device descriptor read/64, error -71
+Oct 28 09:30:12 host kernel: usb 3-1: device descriptor read/64, error -71
+Oct 28 09:30:15 host kernel: usb 3-1: device descriptor read/64, error -71
+Oct 28 09:30:15 host scurrytail[1234]: [ALERT] Threshold reached [usb]: 5 errors in 15s (threshold 5, urgency normal) -> dispatching notification
+Oct 28 09:30:15 host scurrytail[1234]: [STATE] Active -> NeedsAttention (5 active error(s) in 1m0s window, category: usb, urgency: normal)
+... [Flood continues silently during cooldown without log spam] ...
+Oct 28 09:31:00 host scurrytail[1234]: [COOLDOWN] Cooldown expired [usb]: resumed monitoring (suppressed 42 error(s) during 45s cooldown)
+Oct 28 09:31:15 host scurrytail[1234]: [STATE] NeedsAttention -> Active (rate subsiding: 2 active error(s) in 1m0s window)
+Oct 28 09:31:45 host scurrytail[1234]: [STATE] Active -> Passive (rolling window clean, 0 errors)
+```
+
+> [!TIP]
+> **Priority Latching in Logs**: When a higher-urgency alert (such as `critical` storage) already holds the panel latch and a lower-urgency category (such as `normal` Wi-Fi) reaches threshold, ScurryTail logs the event once while explicitly confirming display precedence:
+> `[ALERT] Threshold reached [wifi]: 5 errors in 1m0s (threshold 5, urgency normal) -> dispatched notification; tray display remains latched to [storage] (critical)`
+
+---
+
 ## ⚙️ Configuration File (`config.yaml`)
 
 When running as a background service, using a configuration file avoids needing to edit systemd unit files.
@@ -114,6 +180,13 @@ Create **`~/.config/scurrytail/config.yaml`**:
 
 # Kernel streaming backend: auto | journalctl | dmesg
 backend: auto
+
+# Logging verbosity: debug | info | warning | error
+log_level: info
+
+# Log sink destination: auto | syslog | stderr
+# auto: emits to stderr in interactive terminal, syslog (/dev/log) in background
+log_target: auto
 
 # Global alert threshold (errors per window required for notification)
 threshold: 5
@@ -269,6 +342,8 @@ All settings can be configured via YAML configuration file, environment variable
 | :--- | :--- | :--- | :--- |
 | `-c`, `--config` | `SCURRYTAIL_CONFIG` | *(auto)* | Path to custom YAML configuration file. |
 | `--backend` | `SCURRYTAIL_BACKEND` | `auto` | Kernel streaming backend: `auto`, `journalctl`, or `dmesg`. |
+| `--log-level` | `SCURRYTAIL_LOG_LEVEL` | `info` | Operational logging verbosity: `debug`, `info`, `warning`, `error`. |
+| `--log-target` | `SCURRYTAIL_LOG_TARGET` | `auto` | Log sink: `auto` (syslog in daemon, stderr in TTY), `syslog`, or `stderr`. |
 | `--threshold` | `SCURRYTAIL_THRESHOLD` | `5` | Number of errors within the window required to trigger a notification. |
 | `--window` | `SCURRYTAIL_WINDOW` | `1m` | Rolling evaluation window duration (`30s`, `1m`, `2m`). |
 | `--cooldown` | `SCURRYTAIL_COOLDOWN` | `45s` | Minimum wait time between desktop notifications during sustained errors. |
@@ -281,6 +356,11 @@ All settings can be configured via YAML configuration file, environment variable
 **Lower the alert threshold for sensitive hardware testing:**
 ```bash
 scurrytail -threshold=2 -window=30s
+```
+
+**Run in terminal with verbose debug logging to stderr:**
+```bash
+scurrytail --log-level=debug --log-target=stderr
 ```
 
 **Use dmesg backend on non-systemd systems:**
