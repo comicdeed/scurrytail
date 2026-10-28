@@ -66,7 +66,7 @@ Avoid adding Go source files to the root. Organize new functionality into focuse
 ### 🐹 Go Toolchain & Version Management
 - **Single Source of Truth**: `go.mod` is the single authority for the project's minimum and active Go version.
 - **Host Toolchain Dispatch & Execution Boundaries**: Rely strictly on the `Makefile` to orchestrate Go/gofmt toolchains and container fallbacks. Never conduct ad-hoc filesystem searches (`find`, `which`) when compilers or linters are not immediately visible. If sandbox path isolation blocks access to user-installed toolchains or container runtimes, execute `make` targets directly with bypass permissions rather than attempting manual path rediscovery.
-- **Automated Workflow Alignment**: Never hardcode static `go-version` strings in GitHub Actions. Always configure `actions/setup-go@v5` with `go-version-file: 'go.mod'` across all `.github/workflows/*.yml` files.
+- **Automated Workflow Alignment**: Never hardcode static `go-version` strings in GitHub Actions. Always configure `actions/setup-go@v7` with `go-version-file: 'go.mod'` across all `.github/workflows/*.yml` files.
 - **Docker Fallback Synchronization**: The `Makefile` dynamically dispatches through `$(GOLANG_IMAGE)` (defaulting to `golang:alpine`) when native `go` is missing from the host. When bumping `go.mod`, ensure the toolchain image satisfies the declared version.
 - **Nixpkgs Toolchain Alignment**: When `go.mod` specifies a Go version (e.g., `go 1.27.2`), `nixpkgs` default `pkgs.go` and `pkgs.buildGoModule` may lag behind on an older stable release (e.g., `go 1.26.9`). To prevent build failures:
   - In `nix/package.nix`, select the explicit versioned builder (e.g., `buildGo127Module`) or override `buildGoModule.override { go = pkgs.go_1_27; }`.
