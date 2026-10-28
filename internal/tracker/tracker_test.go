@@ -400,3 +400,68 @@ func TestMultiTracker_Categories(t *testing.T) {
 		}
 	}
 }
+
+func TestMultiTracker_RulePrecedence(t *testing.T) {
+	cfg := config.Config{
+		Window:    10 * time.Second,
+		Threshold: 1,
+		Cooldown:  10 * time.Second,
+		Ignore:    []string{"global_benign"},
+		Categories: map[string]config.CategoryConfig{
+			"storage": {
+				Patterns: []string{"nvme"},
+			},
+			"wifi": {
+				Ignore:   true,
+				Patterns: []string{"iwlwifi_noisy"},
+			},
+		},
+		Patterns: []config.PatternRule{
+			{Pattern: "nvme_benign", Ignore: true},
+			{Pattern: "nvme_critical", Category: "nvme_override"},
+		},
+	}
+
+	mt, err := NewMultiTracker(cfg)
+	if err != nil {
+		t.Fatalf("NewMultiTracker failed: %v", err)
+	}
+
+	now := time.Now()
+
+	// 1. Top-level ignore must be dropped
+	r1 := mt.Record("global_benign event occurred", now)
+	if !r1.Ignored {
+		t.Errorf("expected global_benign to be ignored")
+	}
+
+	// 2. Category ignore must be dropped
+	r2 := mt.Record("iwlwifi_noisy event occurred", now)
+	if !r2.Ignored {
+		t.Errorf("expected iwlwifi_noisy to be ignored")
+	}
+
+	// 3. Flat pattern ignore must be dropped before fallback
+	r3 := mt.Record("nvme_benign event occurred", now)
+	if !r3.Ignored {
+		t.Errorf("expected nvme_benign to be ignored")
+	}
+
+	// 4. Flat pattern explicit override precedes category pattern
+	r4 := mt.Record("nvme_critical event occurred", now)
+	if r4.Ignored {
+		t.Errorf("expected nvme_critical to NOT be ignored")
+	}
+	if r4.Category != "nvme_override" {
+		t.Errorf("expected category 'nvme_override', got %q", r4.Category)
+	}
+
+	// 5. General category pattern matches when flat pattern does not match
+	r5 := mt.Record("nvme standard error", now)
+	if r5.Ignored {
+		t.Errorf("expected nvme standard error to NOT be ignored")
+	}
+	if r5.Category != "storage" {
+		t.Errorf("expected category 'storage', got %q", r5.Category)
+	}
+}

@@ -219,6 +219,31 @@ func (t *Tray) RequestAttention() {
 	t.status = StatusNeedsAttention
 }
 
+// CalculateStatus evaluates error count, alerting status, and threshold to determine the target Status.
+func CalculateStatus(count int, anyAlerting bool, threshold int) Status {
+	switch {
+	case count == 0:
+		return StatusPassive
+	case anyAlerting || (threshold > 0 && count >= threshold):
+		return StatusNeedsAttention
+	default:
+		return StatusActive
+	}
+}
+
+// TruncateRune safely truncates a string to at most maxRunes, appending "..." if truncated,
+// without breaking multi-byte UTF-8 sequences.
+func TruncateRune(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	if maxRunes <= 3 {
+		return string(runes[:maxRunes])
+	}
+	return string(runes[:maxRunes-3]) + "..."
+}
+
 // Update dynamically refreshes standard metrics (backward-compatibility wrapper).
 func (t *Tray) Update(count int, latest string) {
 	t.UpdateWithCategories(count, latest, nil, false, "", "")
@@ -226,75 +251,65 @@ func (t *Tray) Update(count int, latest string) {
 
 // UpdateWithCategories dynamically refreshes menu items, category breakdowns,
 // dynamic priority tooltips, and tray visibility without reallocating D-Bus menu items.
-func (t *Tray) UpdateWithCategories(count int, latest string, categoryCounts map[string]int, anyAlerting bool, alertCat string, alertUrgency string) {
+// It returns the previous status, the updated status, and whether a transition occurred.
+func (t *Tray) UpdateWithCategories(count int, latest string, categoryCounts map[string]int, anyAlerting bool, alertCat string, alertUrgency string) (Status, Status, bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.mStats == nil || t.mLatest == nil {
-		return
-	}
+	oldStatus := t.status
+	targetStatus := CalculateStatus(count, anyAlerting, t.threshold)
 
-	truncated := latest
-	if runes := []rune(truncated); len(runes) > 40 {
-		truncated = string(runes[:37]) + "..."
-	}
+	if t.mStats != nil && t.mLatest != nil {
+		truncated := TruncateRune(latest, 40)
+		t.mStats.SetTitle(fmt.Sprintf("Errors (Recent): %d", count))
+		t.mLatest.SetTitle(fmt.Sprintf("Latest: %s", truncated))
 
-	t.mStats.SetTitle(fmt.Sprintf("Errors (Recent): %d", count))
-	t.mLatest.SetTitle(fmt.Sprintf("Latest: %s", truncated))
+		// Refresh category items in place
+		if t.mCategories != nil {
+			var hasActiveCat bool
+			for cat, item := range t.mCatItems {
+				cnt := categoryCounts[cat]
+				if cnt > 0 {
+					item.SetTitle(fmt.Sprintf("%s: %d", cat, cnt))
+					item.Show()
+					hasActiveCat = true
+				} else {
+					item.Hide()
+				}
+			}
 
-	// Refresh category items in place
-	if t.mCategories != nil {
-		var hasActiveCat bool
-		for cat, item := range t.mCatItems {
-			cnt := categoryCounts[cat]
-			if cnt > 0 {
-				item.SetTitle(fmt.Sprintf("%s: %d", cat, cnt))
-				item.Show()
-				hasActiveCat = true
+			if hasActiveCat {
+				t.mCategories.Show()
 			} else {
-				item.Hide()
+				t.mCategories.Hide()
 			}
 		}
 
-		if hasActiveCat {
-			t.mCategories.Show()
-		} else {
-			t.mCategories.Hide()
+		// Update dynamic tooltip with active priority and category
+		switch {
+		case anyAlerting:
+			label := alertCat
+			if label == "" {
+				label = "global"
+			}
+			urgencyLabel := strings.ToUpper(alertUrgency)
+			if urgencyLabel == "" {
+				urgencyLabel = "ALERT"
+			}
+			systray.SetTooltip(fmt.Sprintf("ScurryTail: %s [%s]\n%d active errors in rolling window\nLatest: %s",
+				urgencyLabel, label, count, truncated))
+
+		case count > 0:
+			systray.SetTooltip(fmt.Sprintf("ScurryTail: ACTIVE\n%d active errors in rolling window\nLatest: %s",
+				count, truncated))
+
+		default:
+			systray.SetTooltip("ScurryTail\nNimble kernel log watcher & error monitor")
 		}
 	}
 
-	// Update dynamic tooltip with active priority and category
-	switch {
-	case anyAlerting:
-		label := alertCat
-		if label == "" {
-			label = "global"
-		}
-		urgencyLabel := strings.ToUpper(alertUrgency)
-		if urgencyLabel == "" {
-			urgencyLabel = "ALERT"
-		}
-		systray.SetTooltip(fmt.Sprintf("ScurryTail: %s [%s]\n%d active errors in rolling window\nLatest: %s",
-			urgencyLabel, label, count, truncated))
-
-	case count > 0:
-		systray.SetTooltip(fmt.Sprintf("ScurryTail: ACTIVE\n%d active errors in rolling window\nLatest: %s",
-			count, truncated))
-
-	default:
-		systray.SetTooltip("ScurryTail\nNimble kernel log watcher & error monitor")
-	}
-
-	switch {
-	case count == 0:
-		t.setStatusLocked(StatusPassive)
-
-	case anyAlerting || (t.threshold > 0 && count >= t.threshold):
-		t.setStatusLocked(StatusNeedsAttention)
-
-	default:
-		t.setStatusLocked(StatusActive)
-	}
+	t.setStatusLocked(targetStatus)
+	return oldStatus, targetStatus, oldStatus != targetStatus
 }
 
 // Run blocks and starts the tray event loop.

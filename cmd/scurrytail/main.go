@@ -128,54 +128,49 @@ func main() {
 		trayCoalesceTicker := time.NewTicker(250 * time.Millisecond)
 		defer trayCoalesceTicker.Stop()
 		var pendingTrayUpdate bool
-		currentStatus := tray.StatusPassive
 		var wakeCategory, wakeLatest string
 
-		evaluateState := func(prune tracker.PruneResult) {
-			var targetStatus tray.Status
-			switch {
-			case prune.TotalCount == 0:
-				targetStatus = tray.StatusPassive
-			case prune.AnyAlerting || (cfg.Threshold > 0 && prune.TotalCount >= cfg.Threshold):
-				targetStatus = tray.StatusNeedsAttention
-			default:
-				targetStatus = tray.StatusActive
+		handleTrayUpdate := func(prune tracker.PruneResult) {
+			oldStatus, newStatus, changed := uiTray.UpdateWithCategories(
+				prune.TotalCount,
+				prune.Latest,
+				prune.CategoryCounts,
+				prune.AnyAlerting,
+				prune.AlertCategory,
+				prune.AlertUrgency,
+			)
+			if !changed {
+				return
 			}
 
-			if targetStatus != currentStatus {
-				switch targetStatus {
-				case tray.StatusPassive:
-					logger.Infof("[STATE] %s -> Passive (rolling window clean, 0 errors)", currentStatus)
-					wakeCategory = ""
-					wakeLatest = ""
-				case tray.StatusActive:
-					if currentStatus == tray.StatusPassive {
-						catLabel := wakeCategory
-						if catLabel == "" {
-							catLabel = "unclassified"
-						}
-						truncated := wakeLatest
-						if runes := []rune(truncated); len(runes) > 60 {
-							truncated = string(runes[:57]) + "..."
-						}
-						logger.Infof("[STATE] %s -> Active (1 active error in %s window, category: %s, latest: %q)",
-							currentStatus, cfg.Window, catLabel, truncated)
-					} else {
-						logger.Infof("[STATE] %s -> Active (%d active error(s) in %s window)", currentStatus, prune.TotalCount, cfg.Window)
+			switch newStatus {
+			case tray.StatusPassive:
+				logger.Infof("[STATE] %s -> Passive (rolling window clean, 0 errors)", oldStatus)
+				wakeCategory = ""
+				wakeLatest = ""
+			case tray.StatusActive:
+				if oldStatus == tray.StatusPassive {
+					catLabel := wakeCategory
+					if catLabel == "" {
+						catLabel = "unclassified"
 					}
-				case tray.StatusNeedsAttention:
-					cat := prune.AlertCategory
-					if cat == "" {
-						cat = "global"
-					}
-					urgency := prune.AlertUrgency
-					if urgency == "" {
-						urgency = "normal"
-					}
-					logger.Warningf("[STATE] %s -> NeedsAttention (%d active error(s) in %s window, category: %s, urgency: %s)",
-						currentStatus, prune.TotalCount, cfg.Window, cat, urgency)
+					truncated := tray.TruncateRune(wakeLatest, 60)
+					logger.Infof("[STATE] %s -> Active (1 active error in %s window, category: %s, latest: %q)",
+						oldStatus, cfg.Window, catLabel, truncated)
+				} else {
+					logger.Infof("[STATE] %s -> Active (%d active error(s) in %s window)", oldStatus, prune.TotalCount, cfg.Window)
 				}
-				currentStatus = targetStatus
+			case tray.StatusNeedsAttention:
+				cat := prune.AlertCategory
+				if cat == "" {
+					cat = "global"
+				}
+				urgency := prune.AlertUrgency
+				if urgency == "" {
+					urgency = "normal"
+				}
+				logger.Warningf("[STATE] %s -> NeedsAttention (%d active error(s) in %s window, category: %s, urgency: %s)",
+					oldStatus, prune.TotalCount, cfg.Window, cat, urgency)
 			}
 		}
 
@@ -204,7 +199,7 @@ func main() {
 					continue
 				}
 
-				if currentStatus == tray.StatusPassive {
+				if wakeCategory == "" && wakeLatest == "" {
 					wakeCategory = res.Category
 					wakeLatest = res.Latest
 				}
@@ -248,9 +243,7 @@ func main() {
 
 			case now := <-trayCoalesceTicker.C:
 				if pendingTrayUpdate {
-					prune := mt.Prune(now)
-					evaluateState(prune)
-					uiTray.UpdateWithCategories(prune.TotalCount, prune.Latest, prune.CategoryCounts, prune.AnyAlerting, prune.AlertCategory, prune.AlertUrgency)
+					handleTrayUpdate(mt.Prune(now))
 					pendingTrayUpdate = false
 				}
 
@@ -264,9 +257,7 @@ func main() {
 						label, exp.Suppressed, exp.Cooldown)
 				}
 
-				prune := mt.Prune(now)
-				evaluateState(prune)
-				uiTray.UpdateWithCategories(prune.TotalCount, prune.Latest, prune.CategoryCounts, prune.AnyAlerting, prune.AlertCategory, prune.AlertUrgency)
+				handleTrayUpdate(mt.Prune(now))
 				pendingTrayUpdate = false
 			}
 		}

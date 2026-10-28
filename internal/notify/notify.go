@@ -1,8 +1,11 @@
 package notify
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -10,12 +13,27 @@ import (
 // Notifier sends desktop notifications via org.freedesktop.Notifications over D-Bus.
 type Notifier struct {
 	appName string
+	sem     chan struct{}
 }
 
 // New creates a new Notifier with the given application name.
 func New(appName string) *Notifier {
 	return &Notifier{
 		appName: appName,
+		sem:     make(chan struct{}, 3),
+	}
+}
+
+// ParseUrgency resolves the D-Bus urgency byte (0: low, 1: normal, 2: critical)
+// and notification expiration timeout in milliseconds.
+func ParseUrgency(urgency string) (byte, int32) {
+	switch strings.ToLower(strings.TrimSpace(urgency)) {
+	case "low":
+		return 0, 5000
+	case "critical":
+		return 2, 0 // Critical alerts persist until dismissed by user
+	default:
+		return 1, 8000
 	}
 }
 
@@ -26,6 +44,13 @@ func (n *Notifier) Send(summary, body string) error {
 
 // SendWithUrgency emits a desktop notification with the specified urgency ("low", "normal", "critical").
 func (n *Notifier) SendWithUrgency(summary, body, urgency string) error {
+	select {
+	case n.sem <- struct{}{}:
+		defer func() { <-n.sem }()
+	default:
+		return errors.New("notification dropped: max concurrent notifications in flight")
+	}
+
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		return fmt.Errorf("failed to connect to session bus: %w", err)
@@ -33,20 +58,7 @@ func (n *Notifier) SendWithUrgency(summary, body, urgency string) error {
 
 	obj := conn.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
 
-	var urgencyVal byte = 1 // 0: low, 1: normal, 2: critical
-	var expireTimeout int32 = 8000
-
-	switch strings.ToLower(strings.TrimSpace(urgency)) {
-	case "low":
-		urgencyVal = 0
-		expireTimeout = 5000
-	case "critical":
-		urgencyVal = 2
-		expireTimeout = 0 // Critical alerts persist until dismissed by user
-	default:
-		urgencyVal = 1
-		expireTimeout = 8000
-	}
+	urgencyVal, expireTimeout := ParseUrgency(urgency)
 
 	// D-Bus org.freedesktop.Notifications.Notify signature:
 	// (susssasa{sv}i) -> (u)
@@ -54,7 +66,11 @@ func (n *Notifier) SendWithUrgency(summary, body, urgency string) error {
 		"urgency": dbus.MakeVariant(urgencyVal),
 	}
 
-	call := obj.Call(
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	call := obj.CallWithContext(
+		ctx,
 		"org.freedesktop.Notifications.Notify",
 		0,
 		n.appName,
