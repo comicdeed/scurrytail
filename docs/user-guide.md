@@ -352,7 +352,7 @@ All settings can be configured via YAML configuration file, environment variable
 
 **Lower the alert threshold for sensitive hardware testing:**
 ```bash
-scurrytail -threshold=2 -window=30s
+scurrytail --threshold=2 --window=30s
 ```
 
 **Run in terminal with verbose debug logging to stderr:**
@@ -362,12 +362,12 @@ scurrytail --log-level=debug --log-target=stderr
 
 **Use dmesg backend on non-systemd systems:**
 ```bash
-scurrytail -backend=dmesg
+scurrytail --backend=dmesg
 ```
 
 **Open logs using your favorite terminal or GUI viewer:**
 ```bash
-scurrytail -viewer-cmd="ghostty -e journalctl -k -f"
+scurrytail --viewer-cmd="ghostty -e journalctl -k -f"
 ```
 
 ---

@@ -5,6 +5,13 @@ All notable changes to **ScurryTail** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.1] - 2026-10-28
+
+Documentation alignment for standard double-hyphen command-line flags.
+
+### Highlights
+* **Standardized CLI Flag Documentation**: Fixed outdated single-hyphen flag references across `README.md` and `docs/user-guide.md` (`--backend`, `--threshold`, `--window`, `--viewer-cmd`) to strictly match POSIX conventions and the application's `--help` output.
+
 ## [v0.3.0] - 2026-10-28
 
 Major milestone release rebranding to ScurryTail, introducing subsystem error classification, modular conf.d/ configuration, silent background operation with attention-requesting tray alerts, pure-Go syslog auditing, and correlated terminal log inspection.
