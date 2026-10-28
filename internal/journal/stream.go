@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+// DefaultViewerJournalctl is the default command to open correlated kernel errors and ScurryTail audit events.
+const DefaultViewerJournalctl = "journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f"
+
+// DefaultViewerDmesg is the default command to stream kernel errors when dmesg is active.
+const DefaultViewerDmesg = "dmesg -w -l err,crit,alert,emerg -T"
+
 // ResolveBackend validates and resolves the streaming backend ("auto", "journalctl", or "dmesg").
 // It returns the normalized backend name, default viewer command, or an error if prerequisites are missing.
 func ResolveBackend(requested string) (backend string, defaultViewer string, err error) {
@@ -16,13 +22,13 @@ func ResolveBackend(requested string) (backend string, defaultViewer string, err
 	switch req {
 	case "", "auto":
 		if isSystemdBooted() && hasCommand("journalctl") {
-			return "journalctl", "journalctl -k -f -n 50", nil
+			return "journalctl", DefaultViewerJournalctl, nil
 		}
 		if hasCommand("dmesg") {
-			return "dmesg", "dmesg -w -l err,crit,alert,emerg -T", nil
+			return "dmesg", DefaultViewerDmesg, nil
 		}
 		if hasCommand("journalctl") {
-			return "journalctl", "journalctl -k -f -n 50", nil
+			return "journalctl", DefaultViewerJournalctl, nil
 		}
 		return "", "", fmt.Errorf("neither 'journalctl' nor 'dmesg' could be found on PATH")
 
@@ -30,13 +36,13 @@ func ResolveBackend(requested string) (backend string, defaultViewer string, err
 		if !hasCommand("journalctl") {
 			return "", "", fmt.Errorf("'journalctl' not found on PATH")
 		}
-		return "journalctl", "journalctl -k -f -n 50", nil
+		return "journalctl", DefaultViewerJournalctl, nil
 
 	case "dmesg":
 		if !hasCommand("dmesg") {
 			return "", "", fmt.Errorf("'dmesg' not found on PATH")
 		}
-		return "dmesg", "dmesg -w -l err,crit,alert,emerg -T", nil
+		return "dmesg", DefaultViewerDmesg, nil
 
 	default:
 		return "", "", fmt.Errorf("unsupported backend %q (valid options: auto, journalctl, dmesg)", requested)

@@ -156,7 +156,7 @@ func BuildCommandArgs(viewerArgs []string) (*exec.Cmd, error) {
 	}
 
 	if len(viewerArgs) == 0 {
-		viewerArgs = []string{"journalctl", "-k", "-f", "-n", "50"}
+		viewerArgs = []string{"journalctl", "-b", "_TRANSPORT=kernel", "-p", "3", "+", "-b", "_SYSTEMD_USER_UNIT=scurrytail.service", "+", "-b", "SYSLOG_IDENTIFIER=scurrytail", "-n", "50", "-f"}
 	}
 
 	var cmdArgs []string

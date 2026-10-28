@@ -56,8 +56,8 @@ func TestBuildCommand(t *testing.T) {
 		if cmd.Path != fakeTerm {
 			t.Errorf("expected cmd.Path %s, got %s", fakeTerm, cmd.Path)
 		}
-		// Expect: fake-terminal -e journalctl -k -f -n 50
-		expected := []string{fakeTerm, "-e", "journalctl", "-k", "-f", "-n", "50"}
+		// Expect: fake-terminal -e journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f
+		expected := []string{fakeTerm, "-e", "journalctl", "-b", "_TRANSPORT=kernel", "-p", "3", "+", "-b", "_SYSTEMD_USER_UNIT=scurrytail.service", "+", "-b", "SYSLOG_IDENTIFIER=scurrytail", "-n", "50", "-f"}
 		if strings.Join(cmd.Args, " ") != strings.Join(expected, " ") {
 			t.Errorf("expected args %v, got %v", expected, cmd.Args)
 		}

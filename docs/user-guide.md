@@ -82,7 +82,7 @@ Quit
   > [!TIP]
   > **Priority Latching**: If a high-priority alert (such as `critical` storage degradation) is actively alerting, lower-urgency background events (such as USB or Wi-Fi blips) **cannot overwrite** the critical error message in `Latest`.
 * **Categories**: Dynamically displays counts for active categories. Automatically hidden when no category errors are present.
-* **View Kernel Logs**: Opens your default terminal (Ghostty, Konsole, GNOME Terminal, etc.) streaming live kernel logs with the last 50 lines displayed.
+* **View Kernel Logs**: Opens your default terminal (Ghostty, Konsole, GNOME Terminal, etc.) streaming live kernel logs with the last 50 lines displayed. When running under `journalctl`, this automatically streams the interleaved audit view combining kernel errors (`-p 3`) with ScurryTail's state evaluations. Under `dmesg`, it streams live kernel errors (`dmesg -w -l err,crit,alert,emerg -T`).
 * **About $\rightarrow$ Website**: Opens the project repository in your default browser.
 * **Quit**: Exits the monitor.
 
@@ -117,20 +117,17 @@ Quit
 
 ### Interleaved Journal Correlation (`journalctl`)
 
-To audit `ScurryTail` state changes alongside live kernel errors in exact chronological order:
+Clicking **View Kernel Logs (journalctl)** in the system tray automatically launches this correlated stream in your default terminal with the last 50 lines displayed.
+
+To inspect this stream manually from a shell:
 
 ```bash
 # Follow live kernel errors interleaved with ScurryTail state evaluations:
-journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service -f
+journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f
 ```
 
 > [!TIP]
-> **Why the `+` operator?** Passing `-k --user-unit scurrytail` computes a logical **AND** between the kernel transport and the user unit, returning zero results. Systemd's `+` separator instructs `journalctl` to perform a logical **OR** disjunction, interleaving both streams seamlessly.
-
-For non-systemd services or standalone runs where ScurryTail is run manually:
-```bash
-journalctl -b _TRANSPORT=kernel -p 3 + -b SYSLOG_IDENTIFIER=scurrytail -f
-```
+> **Why the `+` operator?** Passing `-k --user-unit scurrytail` computes a logical **AND** between the kernel transport and the user unit, returning zero results. Systemd's `+` separator instructs `journalctl` to perform a logical **OR** disjunction, interleaving both streams seamlessly. Including both `_SYSTEMD_USER_UNIT=scurrytail.service` and `SYSLOG_IDENTIFIER=scurrytail` ensures logs are captured whether ScurryTail runs as a systemd user service or as a standalone process.
 
 ### Auditing on Non-Systemd Systems
 
@@ -198,8 +195,8 @@ window: 60s
 cooldown: 45s
 
 # Custom command to open when clicking "View Kernel Logs" (one-line array format)
-# If empty, automatically matches active backend (journalctl or dmesg)
-viewer_cmd: ["ghostty", "-e", "journalctl", "-k", "-f", "-n", "50"]
+# If empty, automatically matches active backend (interleaved journalctl or dmesg)
+viewer_cmd: ["ghostty", "-e", "journalctl", "-b", "_TRANSPORT=kernel", "-p", "3", "+", "-b", "_SYSTEMD_USER_UNIT=scurrytail.service", "+", "-b", "SYSLOG_IDENTIFIER=scurrytail", "-n", "50", "-f"]
 
 # Benign errors to completely suppress (no tray count, no alerts)
 ignore:

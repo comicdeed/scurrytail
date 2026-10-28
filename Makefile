@@ -14,7 +14,7 @@ GOFMT ?= docker run --rm --user $(UID):$(GID) -e HOME=/tmp -v $(CURDIR):$(CURDIR
 TEST_FLAGS ?= -v
 else
 GO ?= $(GO_BIN)
-GOFMT ?= $(shell which gofmt 2>/dev/null || echo gofmt)
+GOFMT ?= $(shell which gofmt 2>/dev/null || ( [ -x $(dir $(GO_BIN))gofmt ] && echo $(dir $(GO_BIN))gofmt ) || echo gofmt)
 TEST_FLAGS ?= -v -race
 endif
 

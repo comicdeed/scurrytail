@@ -5,6 +5,21 @@ All notable changes to **ScurryTail** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0-beta.15] - 2026-10-28
+
+Interleaved kernel and ScurryTail audit correlation in tray log viewer, robust Makefile toolchain dispatch, and documentation refinements.
+
+### ✨ Highlights
+* **✨ Interleaved Audit Log Viewer**: Upgraded the system tray's **View Kernel Logs (journalctl)** action to automatically stream kernel errors interleaved with ScurryTail's state evaluations (`journalctl -b _TRANSPORT=kernel -p 3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f`), providing instant cause-and-effect clarity.
+* **✨ Subsystem Tag Preservation & Filtering**: Correlated viewer strictly displays error-level kernel messages (`-p 3`), preventing background Wi-Fi and Bluetooth info chatter from washing out hardware faults.
+* **Pure-Go Syslog & Console Logging**: Integrated `codemedic/go-log` with dual support for system syslog (`/dev/log` with tag `scurrytail`) in background/daemon mode and direct console logging in interactive terminal sessions.
+* **High-Signal State Auditing**: Emits lifecycle state transitions (`Passive` $\leftrightarrow$ `Active` $\leftrightarrow$ `NeedsAttention`) and threshold alerts to syslog/journald without duplicating raw kernel log messages.
+
+### 🛠️ Technical Notes
+* ✨ Configured `internal/journal/stream.go` and `internal/launcher/launcher.go` with unified default correlated journalctl viewer command.
+* ✨ Updated `internal/tray/tray.go` with contextual tooltip indicating correlated audit stream under `journalctl`.
+* ✨ Refined `Makefile` toolchain resolution to pair `GOFMT` directly with detected `GO_BIN`.
+
 ## [v0.3.0-beta.14] - 2026-10-28
 
 Pure-Go syslog logging integration via codemedic/go-log, high-signal activity and state transition auditing, kernel-style batched debounce summaries, and non-blocking desktop notifications.

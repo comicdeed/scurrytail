@@ -120,7 +120,11 @@ func (t *Tray) Init() {
 	if t.backend != "" {
 		viewLabel = fmt.Sprintf("View Kernel Logs (%s)", t.backend)
 	}
-	t.mViewLogs = systray.AddMenuItem(viewLabel, fmt.Sprintf("Open kernel logs in default terminal via %s", t.backend))
+	tooltip := fmt.Sprintf("Open kernel logs in default terminal via %s", t.backend)
+	if t.backend == "journalctl" {
+		tooltip = "Open correlated kernel errors and audit events in default terminal via journalctl"
+	}
+	t.mViewLogs = systray.AddMenuItem(viewLabel, tooltip)
 	if t.onViewLogs == nil {
 		t.mViewLogs.Disable()
 	}

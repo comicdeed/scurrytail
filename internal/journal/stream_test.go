@@ -57,6 +57,34 @@ func TestCleanKernelMessage(t *testing.T) {
 	}
 }
 
+func TestResolveBackend_Defaults(t *testing.T) {
+	if hasCommand("journalctl") {
+		backend, viewer, err := ResolveBackend("journalctl")
+		if err != nil {
+			t.Fatalf("unexpected error resolving journalctl: %v", err)
+		}
+		if backend != "journalctl" {
+			t.Errorf("expected backend 'journalctl', got %q", backend)
+		}
+		if viewer != DefaultViewerJournalctl {
+			t.Errorf("expected default viewer %q, got %q", DefaultViewerJournalctl, viewer)
+		}
+	}
+
+	if hasCommand("dmesg") {
+		backend, viewer, err := ResolveBackend("dmesg")
+		if err != nil {
+			t.Fatalf("unexpected error resolving dmesg: %v", err)
+		}
+		if backend != "dmesg" {
+			t.Errorf("expected backend 'dmesg', got %q", backend)
+		}
+		if viewer != DefaultViewerDmesg {
+			t.Errorf("expected default viewer %q, got %q", DefaultViewerDmesg, viewer)
+		}
+	}
+}
+
 func TestResolveBackend_Invalid(t *testing.T) {
 	_, _, err := ResolveBackend("invalid-backend")
 	if err == nil {
