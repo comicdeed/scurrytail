@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/comicdeed/scurrytail/internal/journal"
 )
 
 // ErrNoTerminalFound is returned when no supported terminal emulator can be located.
@@ -150,7 +152,7 @@ func makeSpecForBinary(path string) *TerminalSpec {
 }
 
 // DefaultJournalctlViewer defines the canonical journalctl command for viewing correlated logs.
-const DefaultJournalctlViewer = "journalctl -b _TRANSPORT=kernel PRIORITY=0 PRIORITY=1 PRIORITY=2 PRIORITY=3 + -b _SYSTEMD_USER_UNIT=scurrytail.service + -b SYSLOG_IDENTIFIER=scurrytail -n 50 -f"
+const DefaultJournalctlViewer = journal.DefaultViewerJournalctl
 
 // shellQuote returns a shell-escaped representation of s suitable for /bin/sh.
 func shellQuote(s string) string {
@@ -243,24 +245,6 @@ func BuildCommand(viewerCmd string) (*exec.Cmd, error) {
 // LaunchArgs resolves the terminal emulator and asynchronously runs the command args in a detached session.
 func LaunchArgs(viewerArgs []string) error {
 	cmd, err := BuildCommandArgs(viewerArgs)
-	if err != nil {
-		return fmt.Errorf("failed to build viewer command: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start terminal process (%s): %w", cmd.Path, err)
-	}
-
-	go func() {
-		_ = cmd.Wait()
-	}()
-
-	return nil
-}
-
-// Launch resolves the terminal emulator and asynchronously runs the viewer command in a detached session.
-func Launch(viewerCmd string) error {
-	cmd, err := BuildCommand(viewerCmd)
 	if err != nil {
 		return fmt.Errorf("failed to build viewer command: %w", err)
 	}

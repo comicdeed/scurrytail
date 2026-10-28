@@ -17,15 +17,6 @@ type Config struct {
 	Cooldown  time.Duration // Minimum duration between notifications (default: 45s)
 }
 
-// DefaultConfig provides recommended defaults matching the original behavior.
-func DefaultConfig() Config {
-	return Config{
-		Window:    60 * time.Second,
-		Threshold: 5,
-		Cooldown:  45 * time.Second,
-	}
-}
-
 // Tracker tracks error events across a rolling time window and evaluates alert thresholds.
 type Tracker struct {
 	mu               sync.Mutex
@@ -164,13 +155,6 @@ func (t *Tracker) ShouldAlert(now time.Time) (bool, int, string) {
 
 	t.lastNotification = now
 	return true, count, t.latestMsg
-}
-
-// Stats returns the current count and latest message without pruning.
-func (t *Tracker) Stats() (int, string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return len(t.timestamps), t.latestMsg
 }
 
 // CompiledRule encapsulates a compiled pattern with a two-tier literal/regex matching strategy.
