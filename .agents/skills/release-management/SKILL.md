@@ -117,8 +117,20 @@ Pre-releases maintain an evolving **Living Draft** of the milestone. Add a new s
 - Outcome-first language describing what the user sees or feels.
 - Keep technical details (D-Bus properties, systemd paths, static compilation) strictly under `### 🛠️ Technical Notes`.
 
-### 4. Direct Commit, Tag, and Push
-Execute the fast tag-push sequence directly on `main`:
+### 4. Execute Release Pipeline
+Once the version constant in `cmd/scurrytail/main.go` and the `CHANGELOG.md` entry are updated, execute the automated release script:
+
+```bash
+./.agents/skills/release-management/scripts/publish-release.sh vX.Y.Z-beta.N
+```
+
+The script atomically executes all mechanical steps and exits on non-zero error:
+1. Validates SemVer tag format and verifies tag consistency against `cmd/scurrytail/main.go` and `CHANGELOG.md`.
+2. Runs quality gates (`make fmt`, `make test`, `make vet`).
+3. Commits staged files, creates annotated tag `vX.Y.Z-beta.N`, and pushes to `origin main --tags`.
+4. Watches the triggered GitHub Actions `release.yml` workflow run to completion and inspects the published release.
+
+*(Manual reference fallback if running commands individually:)*
 ```bash
 git add cmd/scurrytail/main.go CHANGELOG.md internal/
 git commit -m "chore(release): prepare vX.Y.Z-beta.N"
@@ -188,8 +200,15 @@ The first feature milestone of dmesg-watch, delivering a lightweight, resource-c
 * Multi-architecture Linux packages (`amd64` and `arm64`) generated automatically via GoReleaser.
 ```
 
-### 4. Git Mechanics
-- **Direct Tag-Push (Standard)**:
+### 4. Git Mechanics & Pipeline Execution
+- **Automated Release Pipeline (Standard)**:
+  Once `cmd/scurrytail/main.go` and `CHANGELOG.md` are finalized, run the automated release script:
+  ```bash
+  ./.agents/skills/release-management/scripts/publish-release.sh vX.Y.Z
+  ```
+  The script enforces all quality gates, tags, pushes, and watches the GitHub Actions release workflow.
+
+- **Manual Direct Tag-Push (Reference Fallback)**:
   ```bash
   git add cmd/scurrytail/main.go CHANGELOG.md
   git commit -m "chore(release): prepare vX.Y.Z"
